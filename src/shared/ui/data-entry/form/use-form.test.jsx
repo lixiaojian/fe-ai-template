@@ -12,6 +12,7 @@ import {
     composeResolver,
     createFormInstance,
     getValueByPath,
+    normalizeValidateTrigger,
 } from '@shared/ui/data-entry/form/use-form';
 
 /** 造一个已订阅的 control，模拟 Form 内部的初始化。 */
@@ -47,6 +48,29 @@ function mount(control, name, value = '') {
 function makeRegistry(entries) {
     return new Map(Object.entries(entries));
 }
+
+test('normalizeValidateTrigger 缺省为 onChange', () => {
+    assert.deepEqual(normalizeValidateTrigger(undefined), ['onChange']);
+    assert.deepEqual(normalizeValidateTrigger(null), ['onChange']);
+});
+
+test('normalizeValidateTrigger 支持字符串与数组', () => {
+    assert.deepEqual(normalizeValidateTrigger('onBlur'), ['onBlur']);
+    assert.deepEqual(normalizeValidateTrigger(['onChange', 'onBlur']), ['onChange', 'onBlur']);
+});
+
+test('normalizeValidateTrigger 过滤不认识的取值并告警', () => {
+    const warnings = [];
+    const original = console.warn;
+    console.warn = (...args) => warnings.push(args.join(' '));
+
+    try {
+        assert.deepEqual(normalizeValidateTrigger(['onChange', 'onFocus']), ['onChange']);
+        assert.equal(warnings.length, 1);
+    } finally {
+        console.warn = original;
+    }
+});
 
 test('getValueByPath 支持点号与数组下标', () => {
     const values = { a: { b: 1 }, list: [{ x: 'p' }, { x: 'q' }] };

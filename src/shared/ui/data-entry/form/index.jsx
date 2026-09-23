@@ -71,6 +71,8 @@ function renderRequiredMark(requiredMark, { required, label }) {
  * @param {boolean} [props.disabled=false] - 是否禁用整个表单。
  * @param {boolean|'optional'|Function} [props.requiredMark=true] - 必填标记样式。
  * @param {boolean} [props.scrollToFirstError=false] - 提交失败时滚动到第一个错误字段。
+ * @param {string|string[]} [props.validateTrigger='onChange'] - 字段校验触发时机的默认值，
+ *   Form.Item 可各自覆盖。校验由 Form.Item 手动触发，因此 RHF 自身的自动校验已关闭。
  * @param {Function} [props.resolver] - 表单级校验器，如 zodResolver(schema)。
  *   注意：与 RHF 一致，onFinish 收到的是 resolver 返回的 values；
  *   若 schema 只覆盖部分字段，其余字段会被 zod 剥掉，需用 z.looseObject。
@@ -95,6 +97,7 @@ function Form(props) {
         disabled = false,
         requiredMark = true,
         scrollToFirstError = false,
+        validateTrigger = 'onChange',
         resolver,
         onFinish,
         onFinishFailed,
@@ -170,8 +173,20 @@ function Form(props) {
             disabled,
             requiredMark,
             name,
+            validateTrigger,
         }),
-        [form, layout, labelCol, wrapperCol, labelAlign, colon, disabled, requiredMark, name]
+        [
+            form,
+            layout,
+            labelCol,
+            wrapperCol,
+            labelAlign,
+            colon,
+            disabled,
+            requiredMark,
+            name,
+            validateTrigger,
+        ]
     );
 
     return (

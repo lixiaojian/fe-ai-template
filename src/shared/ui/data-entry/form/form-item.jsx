@@ -22,6 +22,7 @@ import {
     useListContext,
 } from '@shared/ui/data-entry/form/context';
 import { compileRules } from '@shared/ui/data-entry/form/rules';
+import { normalizeValidateTrigger } from '@shared/ui/data-entry/form/use-form';
 import { injectFieldProps } from '@shared/ui/data-entry/form/field-adapter';
 import {
     DEFAULT_LABEL_COL,
@@ -138,6 +139,7 @@ function ItemShell(props) {
         invalid,
         status,
         hidden,
+        onBlur,
         labelCol,
         wrapperCol,
     } = props;
@@ -162,6 +164,7 @@ function ItemShell(props) {
             data-field-name={fieldName}
             data-invalid={invalid || undefined}
             data-status={status}
+            onBlur={onBlur}
             className={cn(
                 'flex w-full flex-col gap-2',
                 layout === 'inline' && 'flex-row items-center gap-2',
@@ -305,12 +308,42 @@ function FieldItem(props) {
         layout,
         className,
         children,
+        validateTrigger,
     } = props;
 
     const formContext = useFormContext();
     const { prefix } = useListContext();
     const fieldName = resolveFieldName(name, prefix);
     const control = formContext.form._rhf.control;
+
+    // 本字段的校验触发时机：Item 级优先于 Form 级。校验全部由这里手动触发
+    // （RHF 的 mode 已设为 onSubmit），因此字段级配置才真正生效。
+    const effectiveValidateTrigger = normalizeValidateTrigger(
+        validateTrigger ?? formContext.validateTrigger
+    );
+    const validateOnChange = effectiveValidateTrigger.includes('onChange');
+    const validateOnBlur = effectiveValidateTrigger.includes('onBlur');
+
+    /** 手动触发本字段校验。 */
+    const runValidate = () => {
+        formContext.form._rhf.trigger(fieldName);
+    };
+
+    /**
+     * 焦点移出整个字段时才处理 blur：RadioGroup 各项之间移动焦点也会冒泡出
+     * focusout，用 relatedTarget 判断焦点是否仍在字段内部，避免多余校验。
+     */
+    const handleBlur = (event) => {
+        // touched 状态与校验时机无关，blur 一律标记
+        field.onBlur();
+        if (!validateOnBlur) {
+            return;
+        }
+        if (event.relatedTarget && event.currentTarget.contains(event.relatedTarget)) {
+            return;
+        }
+        runValidate();
+    };
 
     // 注册 rules，供合成 resolver 使用
     useEffect(() => {
@@ -403,6 +436,10 @@ function FieldItem(props) {
         onChange: (eventOrValue) => {
             const next = getValueFromEvent ? getValueFromEvent(eventOrValue) : eventOrValue;
             field.onChange(next);
+            if (validateOnChange) {
+                // field.onChange 会同步把值写入 store（已实测），可直接触发校验
+                runValidate();
+            }
         },
         invalid: fieldState.invalid,
         id: htmlFor ?? fieldName,
@@ -430,6 +467,7 @@ function FieldItem(props) {
                     data-slot="form-item"
                     data-field-name={fieldName}
                     data-invalid={fieldState.invalid || undefined}
+                    onBlur={handleBlur}
                 >
                     {injected}
                 </div>
@@ -450,6 +488,7 @@ function FieldItem(props) {
                     invalid={fieldState.invalid}
                     status={status}
                     hidden
+                    onBlur={handleBlur}
                     labelCol={DEFAULT_LABEL_COL}
                     wrapperCol={DEFAULT_WRAPPER_COL}
                 />
@@ -502,6 +541,7 @@ function FieldItem(props) {
                 fieldName={fieldName}
                 invalid={fieldState.invalid}
                 status={status}
+                onBlur={handleBlur}
                 labelCol={
                     normalizeColProps(labelCol) ??
                     normalizeColProps(formContext.labelCol) ??
@@ -523,6 +563,8 @@ function FieldItem(props) {
  * @param {string|Array} [props.name] - 字段名；不传则只作为布局容器。
  * @param {React.ReactNode} [props.label] - 标签内容。
  * @param {Array<Object>} [props.rules] - 校验规则数组。
+ * @param {string|string[]} [props.validateTrigger] - 本字段的校验触发时机，
+ *   覆盖 Form 级配置；支持 onChange / onBlur / onSubmit，可传数组。
  * @param {boolean} [props.required] - 是否强制显示必填标记。
  * @param {React.ReactNode} [props.help] - 自定义提示信息，替代规则产生的错误文案。
  * @param {React.ReactNode} [props.extra] - 额外的说明信息，可与错误并存。

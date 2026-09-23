@@ -85,6 +85,16 @@ export default function FormDemo() {
                     <Textarea />
                 </Form.Item>
 
+                {/* validateTrigger="onBlur"：输入时不校验，失焦后才提示 */}
+                <Form.Item
+                    name="phone"
+                    label="手机号"
+                    validateTrigger="onBlur"
+                    rules={[{ pattern: /^1\d{10}$/, message: '手机号格式不正确' }]}
+                >
+                    <Input data-testid="phone" />
+                </Form.Item>
+
                 <Form.Item
                     name="role"
                     label="角色"

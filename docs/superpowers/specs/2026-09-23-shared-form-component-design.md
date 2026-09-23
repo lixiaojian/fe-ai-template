@@ -207,6 +207,20 @@ Form (form/)
 `requiredMark`、`validateTrigger`、`scrollToFirstError`、`preserve`、`form`、`onFinish`、`onFinishFailed`、
 `onValuesChange`、`onFieldsChange`，以及原生 `<form>` 属性（`onSubmit` 除外）。
 
+**`validateTrigger` 的实现方式**：RHF 的校验时机（`mode` / `reValidateMode`）是**表单级**的，
+无法逐字段配置。因此本实现把 RHF 的自动校验整个关掉（`mode: 'onSubmit'`），改由 `Form.Item`
+按各自的 `validateTrigger` 手动 `trigger(name)`：
+
+- `onChange`（默认）：在注入的变更回调里 `field.onChange(...)` 之后立刻 `trigger(name)`
+  （实测 `field.onChange` 同步写入 store，无需 await）。
+- `onBlur`：在外壳元素上挂 `onBlur`（React 的 `onBlur` 走冒泡的 `focusout`，可覆盖
+  Input / Select / Switch / Checkbox / RadioGroup 等所有控件）。用 `relatedTarget`
+  判断焦点是否仍在字段内部，避免 RadioGroup 各项之间移动焦点时误触发。
+- `onSubmit`：不额外触发，仅提交时校验。
+- Form 级为默认值，Form.Item 级覆盖；数组表示多个时机同时生效。
+
+`blur` 一律标记 touched（与校验时机无关）。
+
 ### Form.Item
 
 `name`、`label`、`rules`、`required`、`help`、`extra`、`validateTrigger`、`validateFirst`、`validateDebounce`、

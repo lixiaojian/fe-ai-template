@@ -1473,6 +1473,7 @@ import {
     composeResolver,
     createFormInstance,
     getValueByPath,
+    normalizeValidateTrigger,
 } from '@shared/ui/data-entry/form/use-form';
 
 /** 造一个已订阅的 control，模拟 Form 内部的初始化。 */
@@ -1508,6 +1509,29 @@ function mount(control, name, value = '') {
 function makeRegistry(entries) {
     return new Map(Object.entries(entries));
 }
+
+test('normalizeValidateTrigger 缺省为 onChange', () => {
+    assert.deepEqual(normalizeValidateTrigger(undefined), ['onChange']);
+    assert.deepEqual(normalizeValidateTrigger(null), ['onChange']);
+});
+
+test('normalizeValidateTrigger 支持字符串与数组', () => {
+    assert.deepEqual(normalizeValidateTrigger('onBlur'), ['onBlur']);
+    assert.deepEqual(normalizeValidateTrigger(['onChange', 'onBlur']), ['onChange', 'onBlur']);
+});
+
+test('normalizeValidateTrigger 过滤不认识的取值并告警', () => {
+    const warnings = [];
+    const original = console.warn;
+    console.warn = (...args) => warnings.push(args.join(' '));
+
+    try {
+        assert.deepEqual(normalizeValidateTrigger(['onChange', 'onFocus']), ['onChange']);
+        assert.equal(warnings.length, 1);
+    } finally {
+        console.warn = original;
+    }
+});
 
 test('getValueByPath 支持点号与数组下标', () => {
     const values = { a: { b: 1 }, list: [{ x: 'p' }, { x: 'q' }] };
@@ -1723,6 +1747,28 @@ function getValueByPath(values, path) {
     return String(path)
         .split('.')
         .reduce((acc, key) => (acc === undefined || acc === null ? undefined : acc[key]), values);
+}
+
+/** 支持的校验触发时机。 */
+const VALIDATE_TRIGGERS = ['onChange', 'onBlur', 'onSubmit'];
+
+/**
+ * 归一 validateTrigger 为字符串数组。
+ * @param {string|string[]} [validateTrigger] - antd 的 validateTrigger，缺省为 onChange。
+ * @returns {string[]} 触发时机数组；不认识的取值会被过滤并开发期告警。
+ */
+function normalizeValidateTrigger(validateTrigger) {
+    if (validateTrigger === undefined || validateTrigger === null) {
+        return ['onChange'];
+    }
+
+    const list = Array.isArray(validateTrigger) ? validateTrigger : [validateTrigger];
+    const unknown = list.filter((item) => !VALIDATE_TRIGGERS.includes(item));
+    if (unknown.length > 0) {
+        console.warn(`[Form] validateTrigger 不支持「${unknown.join('、')}」，已忽略。`);
+    }
+
+    return list.filter((item) => VALIDATE_TRIGGERS.includes(item));
 }
 
 /**
@@ -2036,7 +2082,11 @@ function useBoundRhf(instance, options = {}) {
 
     const rhf = useRhfForm({
         defaultValues: initialValues,
-        mode: 'onChange',
+        // 校验改由 Form.Item 按各自的 validateTrigger 手动 trigger 驱动，
+        // 因此必须关掉 RHF 自身的自动校验：RHF 的 mode 是表单级的，
+        // 只要它是 onChange，所有字段都会在 change 时校验，字段级 validateTrigger 形同虚设。
+        mode: 'onSubmit',
+        reValidateMode: 'onSubmit',
         criteriaMode: 'all',
         // 合成 resolver 必须在每次渲染时重建，才能读到最新的注册表
         resolver: composeResolver(resolver ?? null, instance._registry),
@@ -2086,6 +2136,7 @@ export {
     getValueByPath,
     setValueByPath,
     toErrorMessages,
+    normalizeValidateTrigger,
     useBoundRhf,
     useForm,
     useFormInstance,
@@ -2221,6 +2272,7 @@ import {
     useListContext,
 } from '@shared/ui/data-entry/form/context';
 import { compileRules } from '@shared/ui/data-entry/form/rules';
+import { normalizeValidateTrigger } from '@shared/ui/data-entry/form/use-form';
 import { injectFieldProps } from '@shared/ui/data-entry/form/field-adapter';
 import {
     DEFAULT_LABEL_COL,
@@ -2337,6 +2389,7 @@ function ItemShell(props) {
         invalid,
         status,
         hidden,
+        onBlur,
         labelCol,
         wrapperCol,
     } = props;
@@ -2361,6 +2414,7 @@ function ItemShell(props) {
             data-field-name={fieldName}
             data-invalid={invalid || undefined}
             data-status={status}
+            onBlur={onBlur}
             className={cn(
                 'flex w-full flex-col gap-2',
                 layout === 'inline' && 'flex-row items-center gap-2',
@@ -2504,12 +2558,42 @@ function FieldItem(props) {
         layout,
         className,
         children,
+        validateTrigger,
     } = props;
 
     const formContext = useFormContext();
     const { prefix } = useListContext();
     const fieldName = resolveFieldName(name, prefix);
     const control = formContext.form._rhf.control;
+
+    // 本字段的校验触发时机：Item 级优先于 Form 级。校验全部由这里手动触发
+    // （RHF 的 mode 已设为 onSubmit），因此字段级配置才真正生效。
+    const effectiveValidateTrigger = normalizeValidateTrigger(
+        validateTrigger ?? formContext.validateTrigger
+    );
+    const validateOnChange = effectiveValidateTrigger.includes('onChange');
+    const validateOnBlur = effectiveValidateTrigger.includes('onBlur');
+
+    /** 手动触发本字段校验。 */
+    const runValidate = () => {
+        formContext.form._rhf.trigger(fieldName);
+    };
+
+    /**
+     * 焦点移出整个字段时才处理 blur：RadioGroup 各项之间移动焦点也会冒泡出
+     * focusout，用 relatedTarget 判断焦点是否仍在字段内部，避免多余校验。
+     */
+    const handleBlur = (event) => {
+        // touched 状态与校验时机无关，blur 一律标记
+        field.onBlur();
+        if (!validateOnBlur) {
+            return;
+        }
+        if (event.relatedTarget && event.currentTarget.contains(event.relatedTarget)) {
+            return;
+        }
+        runValidate();
+    };
 
     // 注册 rules，供合成 resolver 使用
     useEffect(() => {
@@ -2602,6 +2686,10 @@ function FieldItem(props) {
         onChange: (eventOrValue) => {
             const next = getValueFromEvent ? getValueFromEvent(eventOrValue) : eventOrValue;
             field.onChange(next);
+            if (validateOnChange) {
+                // field.onChange 会同步把值写入 store（已实测），可直接触发校验
+                runValidate();
+            }
         },
         invalid: fieldState.invalid,
         id: htmlFor ?? fieldName,
@@ -2629,6 +2717,7 @@ function FieldItem(props) {
                     data-slot="form-item"
                     data-field-name={fieldName}
                     data-invalid={fieldState.invalid || undefined}
+                    onBlur={handleBlur}
                 >
                     {injected}
                 </div>
@@ -2649,6 +2738,7 @@ function FieldItem(props) {
                     invalid={fieldState.invalid}
                     status={status}
                     hidden
+                    onBlur={handleBlur}
                     labelCol={DEFAULT_LABEL_COL}
                     wrapperCol={DEFAULT_WRAPPER_COL}
                 />
@@ -2701,6 +2791,7 @@ function FieldItem(props) {
                 fieldName={fieldName}
                 invalid={fieldState.invalid}
                 status={status}
+                onBlur={handleBlur}
                 labelCol={
                     normalizeColProps(labelCol) ??
                     normalizeColProps(formContext.labelCol) ??
@@ -2722,6 +2813,8 @@ function FieldItem(props) {
  * @param {string|Array} [props.name] - 字段名；不传则只作为布局容器。
  * @param {React.ReactNode} [props.label] - 标签内容。
  * @param {Array<Object>} [props.rules] - 校验规则数组。
+ * @param {string|string[]} [props.validateTrigger] - 本字段的校验触发时机，
+ *   覆盖 Form 级配置；支持 onChange / onBlur / onSubmit，可传数组。
  * @param {boolean} [props.required] - 是否强制显示必填标记。
  * @param {React.ReactNode} [props.help] - 自定义提示信息，替代规则产生的错误文案。
  * @param {React.ReactNode} [props.extra] - 额外的说明信息，可与错误并存。
@@ -3197,6 +3290,8 @@ function renderRequiredMark(requiredMark, { required, label }) {
  * @param {boolean} [props.disabled=false] - 是否禁用整个表单。
  * @param {boolean|'optional'|Function} [props.requiredMark=true] - 必填标记样式。
  * @param {boolean} [props.scrollToFirstError=false] - 提交失败时滚动到第一个错误字段。
+ * @param {string|string[]} [props.validateTrigger='onChange'] - 字段校验触发时机的默认值，
+ *   Form.Item 可各自覆盖。校验由 Form.Item 手动触发，因此 RHF 自身的自动校验已关闭。
  * @param {Function} [props.resolver] - 表单级校验器，如 zodResolver(schema)。
  *   注意：与 RHF 一致，onFinish 收到的是 resolver 返回的 values；
  *   若 schema 只覆盖部分字段，其余字段会被 zod 剥掉，需用 z.looseObject。
@@ -3221,6 +3316,7 @@ function Form(props) {
         disabled = false,
         requiredMark = true,
         scrollToFirstError = false,
+        validateTrigger = 'onChange',
         resolver,
         onFinish,
         onFinishFailed,
@@ -3296,8 +3392,20 @@ function Form(props) {
             disabled,
             requiredMark,
             name,
+            validateTrigger,
         }),
-        [form, layout, labelCol, wrapperCol, labelAlign, colon, disabled, requiredMark, name]
+        [
+            form,
+            layout,
+            labelCol,
+            wrapperCol,
+            labelAlign,
+            colon,
+            disabled,
+            requiredMark,
+            name,
+            validateTrigger,
+        ]
     );
 
     return (
@@ -3513,6 +3621,16 @@ export default function FormDemo() {
                     <Textarea />
                 </Form.Item>
 
+                {/* validateTrigger="onBlur"：输入时不校验，失焦后才提示 */}
+                <Form.Item
+                    name="phone"
+                    label="手机号"
+                    validateTrigger="onBlur"
+                    rules={[{ pattern: /^1\d{10}$/, message: '手机号格式不正确' }]}
+                >
+                    <Input data-testid="phone" />
+                </Form.Item>
+
                 <Form.Item
                     name="role"
                     label="角色"
@@ -3691,9 +3809,10 @@ playwright-cli snapshot
 6. **Form.List 增删**：点 `add-item` 两次 → 输入值 → 删中间一项 → 断言剩下项的输入框值迁移正确（`eval` 取 `input[data-testid^=item-]` 的 value 数组）。
 7. **move 语义**：输入 A / B / C 后点 `move-2`（置顶）→ 断言顺序变为 C / A / B，而不是交换后的 C / B / A。
 8. **noStyle**：清空联系方式 → 提交 → 断言错误文案出现在外层 Item 内。
-9. **scrollToFirstError**：清空邮箱后提交 → 断言页面滚动（`eval "window.scrollY"` 变化）。
-10. **zodResolver 与 rules 共存**：邮箱填非法值 + 角色留空 → 提交 → 断言两个错误同时出现。
-11. **控制台无报错**：`playwright-cli console` 无 error 级别输出。
+9. **scrollToFirstError**：清空邮箱后提交 → 断言焦点落到首个错误字段（`document.activeElement.id`）。
+10. **validateTrigger="onBlur"**：往手机号输入 `123` → 断言此时**没有**错误文案；再让它失焦 → 断言出现「手机号格式不正确」。这是字段级校验触发时机的关键回归点。
+11. **zodResolver 与 rules 共存**：邮箱填非法值 + 角色留空 → 提交 → 断言两个错误同时出现。
+12. **控制台无报错**：`playwright-cli console` 无 error 级别输出。
 
 - [ ] **Step 5: 清理 Playwright 产物**
 

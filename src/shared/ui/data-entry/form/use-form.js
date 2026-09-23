@@ -28,6 +28,28 @@ function getValueByPath(values, path) {
         .reduce((acc, key) => (acc === undefined || acc === null ? undefined : acc[key]), values);
 }
 
+/** 支持的校验触发时机。 */
+const VALIDATE_TRIGGERS = ['onChange', 'onBlur', 'onSubmit'];
+
+/**
+ * 归一 validateTrigger 为字符串数组。
+ * @param {string|string[]} [validateTrigger] - antd 的 validateTrigger，缺省为 onChange。
+ * @returns {string[]} 触发时机数组；不认识的取值会被过滤并开发期告警。
+ */
+function normalizeValidateTrigger(validateTrigger) {
+    if (validateTrigger === undefined || validateTrigger === null) {
+        return ['onChange'];
+    }
+
+    const list = Array.isArray(validateTrigger) ? validateTrigger : [validateTrigger];
+    const unknown = list.filter((item) => !VALIDATE_TRIGGERS.includes(item));
+    if (unknown.length > 0) {
+        console.warn(`[Form] validateTrigger 不支持「${unknown.join('、')}」，已忽略。`);
+    }
+
+    return list.filter((item) => VALIDATE_TRIGGERS.includes(item));
+}
+
 /**
  * 按点号路径赋值（不可变，返回新对象）。
  * @param {Object} source - 原对象。
@@ -339,7 +361,11 @@ function useBoundRhf(instance, options = {}) {
 
     const rhf = useRhfForm({
         defaultValues: initialValues,
-        mode: 'onChange',
+        // 校验改由 Form.Item 按各自的 validateTrigger 手动 trigger 驱动，
+        // 因此必须关掉 RHF 自身的自动校验：RHF 的 mode 是表单级的，
+        // 只要它是 onChange，所有字段都会在 change 时校验，字段级 validateTrigger 形同虚设。
+        mode: 'onSubmit',
+        reValidateMode: 'onSubmit',
         criteriaMode: 'all',
         // 合成 resolver 必须在每次渲染时重建，才能读到最新的注册表
         resolver: composeResolver(resolver ?? null, instance._registry),
@@ -389,6 +415,7 @@ export {
     getValueByPath,
     setValueByPath,
     toErrorMessages,
+    normalizeValidateTrigger,
     useBoundRhf,
     useForm,
     useFormInstance,
