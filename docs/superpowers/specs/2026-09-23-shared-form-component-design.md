@@ -101,7 +101,8 @@ Form (form/)
 **刻意标注为近似的实现**：
 
 - `validateFields({ validateOnly: true })`：RHF 无"只校验不显示错误"，用 `{ shouldFocus: false }` 近似。
-- `Form.Item` 的 `dependencies` 依赖 RHF `register({ deps })`，字段未挂载时不生效。
+- `Form.Item` 的 `dependencies` **不用 RHF 的 `register({ deps })`**（实测其重校验不可靠），
+  改为 Form 内部用 `watch` 订阅依赖字段，变化时 `trigger(name)`（实测可行）。
 - `Form.Item` 的 `shouldUpdate` 用 `useWatch` 订阅 + 比较函数实现，属近似。
 
 ### 3.3 值绑定：控件适配表
@@ -161,8 +162,20 @@ Form (form/)
 - `Row`：`gutter`（数字或 `[水平, 垂直]`）、`justify`、`align`、`wrap`。
 - `Col`：`span`（0–24）、`offset`、`push`、`pull`、`xs`~`xxl`。
 - 断点映射 Tailwind：`xs` → 无前缀、`sm`/`md`/`lg`/`xl` → 同名前缀、`xxl` → `2xl`（JSDoc 标注）。
-- **类名必须走静态映射表**：`col-span-${n}` 这类动态拼接 Tailwind 扫不到，需穷举 span × 断点的字面量类名。
-  映射表放 `col.jsx` 内，模块顶层常量。
+- **类名由 `@source inline` 显式生成**，不在 JS 里写静态映射表：在
+  `src/shared/styles/index.css` 追加四条指令（实测 Tailwind 4.3.3 支持花括号展开，
+  共生成 31KB 规则，`2xl:col-span-24` 等断点变体齐全）：
+
+    ```css
+    @source inline("{,sm:,md:,lg:,xl:,2xl:}col-span-{0..24}");
+    @source inline("{,sm:,md:,lg:,xl:,2xl:}col-start-{1..25}");
+    @source inline("{,sm:,md:,lg:,xl:,2xl:}col-end-{1..25}");
+    @source inline("grid-cols-24");
+    ```
+
+    `col.jsx` 只做「属性值 → 类名字符串」的拼接（`col-span-${span}`、`sm:col-span-${sm}`），
+    类名本身已由上面的指令保证存在。
+
 - `Form` 的 `labelCol` / `wrapperCol` 解析成 `Col` 的 props（`field-layout.js`），
   `layout="horizontal"` 时按 antd 语义用 `Row` 承载 label 与控件。
 
@@ -186,7 +199,8 @@ Form (form/)
 
 - `operation.add(defaultValue?, insertIndex?)` → RHF `insert` / `append`
 - `operation.remove(index | number[])` → RHF `remove`
-- `operation.move(from, to)` → RHF `swap`（antd 的 move 即交换语义，RHF 7.88 有 `swap`）
+- `operation.move(from, to)` → RHF `move`（语义一致，实测对比：`move(0,2)` 于 `ABCD` 上
+  rc-field-form 与 RHF 均得 `BCAD`；RHF 的 `swap` 是交换，得 `CBAD`，**不可用于 move**）
 
 ### Form.ErrorList
 
@@ -243,7 +257,7 @@ src/shared/ui/layout/col.jsx   # 新增
 | `setFieldsValue` 写未注册字段：antd 存 store，RHF 不存                   | 适配层先 `register` 再 `setValue` 再 `clearErrors` 再 `unregister(name, { keepValue: true, keepError: true })` |
 | `Form.List` 内嵌套字段的 name 缺索引前缀                                 | `ListContext` 传 prefix，`Form.Item` 自动拼接                                                                  |
 | `shouldUpdate` 在 RHF 上无对应原语                                       | `useWatch` 订阅全表单 + 比较函数控制重渲染，JSDoc 标注为近似                                                   |
-| `dependencies` 用 RHF `deps`：字段未挂载时不生效                         | JSDoc 标注；示例页验证挂载态行为                                                                               |
+| `dependencies` 用 RHF `deps` 不可靠（实测依赖变化后目标字段不重校验）    | 改为 Form 内 `watch` 订阅依赖字段 + `trigger(name)`，实测可行                                                  |
 | `zodResolver` 与 `rules` 无法共存（RHF 有 resolver 时不跑字段 validate） | 内部合成 resolver：先跑用户 resolver，再补跑 `rules` 注册表，合并 errors                                       |
 | `scrollToFirstError` 的 `focus` 对非原生控件无效                         | 仅对原生可聚焦元素调用 `setFocus`                                                                              |
 | `warningOnly` 无 error 通道                                              | 独立 state + `useEffect`，仅渲染 `--warning` 色文案，不阻断提交                                                |
