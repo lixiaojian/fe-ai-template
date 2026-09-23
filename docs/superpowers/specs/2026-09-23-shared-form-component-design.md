@@ -77,23 +77,23 @@ Form (form/)
 
 `FormInstance` 是 RHF 方法的适配层，不持有独立状态：
 
-| antd FormInstance                         | 落到 RHF                                                                            | 说明                                                      |
-| ----------------------------------------- | ----------------------------------------------------------------------------------- | --------------------------------------------------------- |
-| `getFieldValue(name)`                     | `getValues(name)`                                                                   |                                                           |
-| `getFieldsValue(nameList?, filterFunc?)`  | `getValues(nameList)`                                                               | 传 `true` 返回 store 全部值                               |
-| `getFieldError(name)`                     | `formState.errors` 经 namePath 取值                                                 | 返回 `string[]`                                           |
-| `getFieldsError(nameList?)`               | 同上，批量                                                                          | 返回 `{ name, errors }[]`                                 |
-| `isFieldTouched(name)`                    | `formState.touchedFields`                                                           |                                                           |
-| `isFieldsTouched(nameList?, allTouched?)` | 同上                                                                                |                                                           |
-| `isFieldValidating(name)`                 | `formState.validatingFields`                                                        |                                                           |
-| `setFieldValue(name, value)`              | `clearErrors(name)` → `setValue`                                                    | antd 会重置该字段错误，RHF 的 `setValue` 不会（已核源码） |
-| `setFieldsValue(values)`                  | `register` → `setValues` → `clearErrors` → `unregister(name, { keepErrors: true })` | 见 §6 风险 3                                              |
-| `resetFields(fields?)`                    | `reset` / `resetField`                                                              | 重置到 `initialValues`                                    |
-| `validateFields(nameList?, config?)`      | `trigger`                                                                           | `validateOnly` 为近似实现，JSDoc 标注                     |
-| `submit()`                                | `requestSubmit()`                                                                   |                                                           |
-| `scrollToField(name, options)`            | 查 `[data-field-name]` + `setFocus`                                                 |                                                           |
-| `getFieldInstance(name)`                  | 不支持                                                                              | 直接抛错并提示用 `getFieldValue`                          |
-| `setFields(fields)`                       | 不支持                                                                              | 抛错，提示用 `setFieldsValue`                             |
+| antd FormInstance                         | 落到 RHF                                                                                           | 说明                                                      |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| `getFieldValue(name)`                     | `getValues(name)`                                                                                  |                                                           |
+| `getFieldsValue(nameList?, filterFunc?)`  | `getValues(nameList)` / `getValues()`                                                              | `getValues(true)` 会抛错，不可用                          |
+| `getFieldError(name)`                     | `formState.errors` 经 namePath 取值                                                                | 返回 `string[]`                                           |
+| `getFieldsError(nameList?)`               | 同上，批量                                                                                         | 返回 `{ name, errors }[]`                                 |
+| `isFieldTouched(name)`                    | `formState.touchedFields`                                                                          |                                                           |
+| `isFieldsTouched(nameList?, allTouched?)` | 同上                                                                                               |                                                           |
+| `isFieldValidating(name)`                 | `formState.validatingFields`                                                                       |                                                           |
+| `setFieldValue(name, value)`              | `clearErrors(name)` → `setValue`                                                                   | antd 会重置该字段错误，RHF 的 `setValue` 不会（已核源码） |
+| `setFieldsValue(values)`                  | `register` → `setValue` → `clearErrors` → `unregister(name, { keepValue: true, keepError: true })` | 见 §6 风险 3                                              |
+| `resetFields(fields?)`                    | `reset` / `resetField`                                                                             | 重置到 `initialValues`                                    |
+| `validateFields(nameList?, config?)`      | `trigger`                                                                                          | `validateOnly` 为近似实现，JSDoc 标注                     |
+| `submit()`                                | `requestSubmit()`                                                                                  |                                                           |
+| `scrollToField(name, options)`            | 查 `[data-field-name]` + `setFocus`                                                                |                                                           |
+| `getFieldInstance(name)`                  | 不支持                                                                                             | 直接抛错并提示用 `getFieldValue`                          |
+| `setFields(fields)`                       | 不支持                                                                                             | 抛错，提示用 `setFieldsValue`                             |
 
 **刻意对齐的语义**：`setFieldsValue` / `setFieldValue` 不触发 `onValuesChange` / `onFieldsChange`
 （与 antd 一致，仅用户交互触发）。
@@ -108,37 +108,38 @@ Form (form/)
 
 `Form.Item` 用 `cloneElement` 把值注入子控件。按 `data-slot` 识别控件类型选择属性对：
 
-| 识别依据                                       | value 属性 | 变更属性          |
-| ---------------------------------------------- | ---------- | ----------------- |
-| `data-slot="select-trigger"`                   | `value`    | `onValueChange`   |
-| `data-slot="switch"`                           | `checked`  | `onCheckedChange` |
-| `data-slot="checkbox"`                         | `checked`  | `onCheckedChange` |
-| 其余（含 `Input` / `Textarea` / `RadioGroup`） | `value`    | `onChange`        |
+| 识别依据                        | value 属性 | 变更属性          |
+| ------------------------------- | ---------- | ----------------- |
+| `data-slot="select-trigger"`    | `value`    | `onValueChange`   |
+| `data-slot="switch"`            | `checked`  | `onCheckedChange` |
+| `data-slot="checkbox"`          | `checked`  | `onCheckedChange` |
+| `data-slot="radio-group"`       | `value`    | `onValueChange`   |
+| 其余（含 `Input` / `Textarea`） | `value`    | `onChange`        |
 
 - `valuePropName` / `trigger` 显式传入时**优先于**适配表。
 - 识别不中时回退 `value` + `onChange`（antd 默认语义）。
 - 适配表同时输出 `aria-invalid`、`id`、`ref`（`setFocus` 用）。
+- **`aria-invalid` 的落点随控件而异**（已实测）：`Select` 需放在 `SelectTrigger` 上
+  （`SelectRoot` 不透传未知属性）；`Switch` / `Checkbox` / `RadioGroup` 放根组件即可透传。
 
 ### 3.4 rules 编译
 
-`rules` 数组按声明顺序编译成 RHF 的 `validate` 数组（RHF 支持 `validate` 为函数数组，按序执行并收集全部错误）。
-
-支持字段：`required`、`pattern`、`min`、`max`、`minLength`、`maxLength`、`type`、`enum`、`len`、`whitespace`、
-`validator`、`transform`、`message`、`warningOnly`。
-
+- `rules` 数组按声明顺序编译成一组校验函数，由合成 resolver 依序执行。
 - `message` 支持 antd 模板变量（`${label}`、`${min}` 等）与函数形式。
-- `validateFirst`：RHF 的 `validate` 函数数组在**每条错误后短路**（已核源码），
-  与本字段的 `criteriaMode` 无关；`'parallel'` 不实现，降级为顺序并开发期告警。
+- `validateFirst`：合成 resolver 内**每条错误后短路**（与 antd 一致）；
+  `'parallel'` 不实现，降级为顺序并开发期告警。
 - `validateDebounce` 包裹校验执行（防抖）。
 - `type` 支持 `string` / `number` / `boolean` / `integer` / `float` / `url` / `email` / `date` / `array` / `object`；
   其余 antd 类型（`hex` / `regexp` / `ipv4` / `ipv6` / `json`）在 JSDoc 标注为不支持。
-- `len` / `type` / `enum` / `whitespace` / `transform` 不在 RHF `RegisterOptions` 里，由编译出的 `validate` 函数实现。
+- `len` / `type` / `enum` / `whitespace` / `transform` 由编译出的校验函数自行实现。
 
 **`warningOnly` 走独立通道**：RHF 只有 error 通道，warning 规则若塞进 `validate` 会阻断提交。
 实现为 `Form.Item` 内独立 state + `useEffect` 跑 warning 规则，仅渲染 `--warning` 色文案，不参与 RHF 校验。
 
-**与 `zodResolver` 的关系**：resolver 先跑，通过后才跑 `rules`；两者同时生效、互不干扰。
-错误显示优先级：resolver 错误（若存在）覆盖 `rules` 错误。
+**与 `zodResolver` 的关系**：RHF 的字段级 `validate` 在存在 `resolver` 时**完全不执行**（已实测）。
+因此 Form 组件在内部**合成一个 resolver**：若用户传了 `resolver`（如 `zodResolver`），先跑它取错误，
+再按 `rules` 注册表补跑字段级规则，合并成一个 `errors` 对象返回。这样两者同时生效、互不干扰，
+且 `rules` 顺序语义得以保留（`validateFirst` 短路在合成层内实现）。
 
 ### 3.5 其余 Form.Item 属性的落地
 
@@ -235,24 +236,30 @@ src/shared/ui/layout/col.jsx   # 新增
 
 ## 6. 风险与缓解
 
-| 风险                                                   | 缓解                                                                                                          |
-| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
-| 适配表识别不中 → 值静默收集不到                        | 兜底 `value`+`onChange`；示例页逐个控件断言实际值                                                             |
-| `col-span-${n}` 动态拼接被 Tailwind 漏扫               | 静态映射表穷举 span × 断点字面量                                                                              |
-| `setFieldsValue` 写未注册字段：antd 存 store，RHF 不存 | 适配层先 `register` 再 `setValues` 再 `clearErrors` 再 `unregister(name, { keepErrors: true })`，保留值与错误 |
-| `Form.List` 内嵌套字段的 name 缺索引前缀               | `ListContext` 传 prefix，`Form.Item` 自动拼接                                                                 |
-| `shouldUpdate` 在 RHF 上无对应原语                     | `useWatch` 订阅全表单 + 比较函数控制重渲染，JSDoc 标注为近似                                                  |
-| `dependencies` 用 RHF `deps`：字段未挂载时不生效       | JSDoc 标注；示例页验证挂载态行为                                                                              |
-| `zodResolver` 与 `rules` 的错误顺序                    | resolver 先跑，通过后才跑 `rules`；JSDoc 标注优先级                                                           |
-| `scrollToFirstError` 的 `focus` 对非原生控件无效       | 仅对原生可聚焦元素调用 `setFocus`                                                                             |
-| `warningOnly` 无 error 通道                            | 独立 state + `useEffect`，仅渲染 `--warning` 色文案，不阻断提交                                               |
-| `validateFields({ validateOnly })` 语义近似            | JSDoc 标注为近似实现                                                                                          |
+| 风险                                                                     | 缓解                                                                                                           |
+| ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
+| 适配表识别不中 → 值静默收集不到                                          | 兜底 `value`+`onChange`；示例页逐个控件断言实际值                                                              |
+| `col-span-${n}` 动态拼接被 Tailwind 漏扫                                 | `src/shared/styles/index.css` 用 `@source inline("{,sm:,md:,lg:,xl:,2xl:}col-span-{0..24}")` 等指令显式生成    |
+| `setFieldsValue` 写未注册字段：antd 存 store，RHF 不存                   | 适配层先 `register` 再 `setValue` 再 `clearErrors` 再 `unregister(name, { keepValue: true, keepError: true })` |
+| `Form.List` 内嵌套字段的 name 缺索引前缀                                 | `ListContext` 传 prefix，`Form.Item` 自动拼接                                                                  |
+| `shouldUpdate` 在 RHF 上无对应原语                                       | `useWatch` 订阅全表单 + 比较函数控制重渲染，JSDoc 标注为近似                                                   |
+| `dependencies` 用 RHF `deps`：字段未挂载时不生效                         | JSDoc 标注；示例页验证挂载态行为                                                                               |
+| `zodResolver` 与 `rules` 无法共存（RHF 有 resolver 时不跑字段 validate） | 内部合成 resolver：先跑用户 resolver，再补跑 `rules` 注册表，合并 errors                                       |
+| `scrollToFirstError` 的 `focus` 对非原生控件无效                         | 仅对原生可聚焦元素调用 `setFocus`                                                                              |
+| `warningOnly` 无 error 通道                                              | 独立 state + `useEffect`，仅渲染 `--warning` 色文案，不阻断提交                                                |
+| `validateFields({ validateOnly })` 语义近似                              | JSDoc 标注为近似实现                                                                                           |
 
 ## 7. 验收
 
 1. `pnpm lint` 通过（注意：列表 `key` 无 lint 覆盖，靠 code review；不要为此引入 `eslint-plugin-react`）。
 2. `pnpm build` 通过。
-3. `src/app1/pages/form-demo.jsx` 示例页，覆盖矩阵：
+3. `pnpm test` 通过 —— 新增 Node 内置测试：`scripts/test-loader.mjs`（把 `@shared/*` 别名、
+   省略扩展名、JSX 转换接进 `node --test`）+ `scripts/register-loader.mjs`，
+   测试文件与源文件同目录（`form/*.test.jsx`），脚本为
+   `node --import ./scripts/register-loader.mjs --test "src/**/*.test.jsx"`。
+   纯逻辑（rules 编译、message 模板、namePath、FormInstance 适配、Col 类名映射）用
+   `createFormControl` + `react-dom/server` 直接断言，不引入任何新依赖。
+4. `src/app1/pages/form-demo.jsx` 示例页，覆盖矩阵：
     - 三种 `layout`（horizontal / vertical / inline）
     - `labelCol` / `wrapperCol` 含断点
     - rules 各类型：required / pattern / min / max / len / type / enum / whitespace /
@@ -262,9 +269,9 @@ src/shared/ui/layout/col.jsx   # 新增
     - `Form.List` 增 / 删 / 移动，验证索引重建
     - Form 级 `zodResolver` 与字段级 `rules` 共存
     - `noStyle` 嵌套、`scrollToFirstError`
-4. 用 `playwright-cli` 实跑示例页并断言 DOM：错误文案、必填星号、值回填、List 增删后的索引。
+5. 用 `playwright-cli` 实跑示例页并断言 DOM：错误文案、必填星号、值回填、List 增删后的索引。
    产物落 `.playwright-cli/`，任务收尾删除；收尾复查 `git status` 无截图/日志残留。
-5. 示例页保留在仓库作为用法参考。
+6. 示例页保留在仓库作为用法参考。
 
 ## 8. 不做的事
 
