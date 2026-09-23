@@ -40,7 +40,10 @@ function resolveRelative(specifier, parentURL) {
 
 export async function resolve(specifier, context, next) {
     if (specifier.startsWith('@shared/')) {
-        return next(withExtension(path.join(ROOT, 'src', specifier.replace('@shared/', 'shared/'))), context);
+        return next(
+            withExtension(path.join(ROOT, 'src', specifier.replace('@shared/', 'shared/'))),
+            context
+        );
     }
     if (specifier.startsWith('.')) {
         const resolved = resolveRelative(specifier, context.parentURL);

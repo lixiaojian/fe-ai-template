@@ -75,25 +75,32 @@ Form (form/)
 
 ### 3.2 FormInstance 映射
 
-`FormInstance` 是 RHF 方法的适配层，不持有独立状态：
+`FormInstance` 是 RHF 方法的适配层，不持有表单状态，但**持有 rules 注册表与已挂载字段集合**：
 
-| antd FormInstance                         | 落到 RHF                                                                                           | 说明                                                      |
-| ----------------------------------------- | -------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
-| `getFieldValue(name)`                     | `getValues(name)`                                                                                  |                                                           |
-| `getFieldsValue(nameList?, filterFunc?)`  | `getValues(nameList)` / `getValues()`                                                              | `getValues(true)` 会抛错，不可用                          |
-| `getFieldError(name)`                     | `formState.errors` 经 namePath 取值                                                                | 返回 `string[]`                                           |
-| `getFieldsError(nameList?)`               | 同上，批量                                                                                         | 返回 `{ name, errors }[]`                                 |
-| `isFieldTouched(name)`                    | `formState.touchedFields`                                                                          |                                                           |
-| `isFieldsTouched(nameList?, allTouched?)` | 同上                                                                                               |                                                           |
-| `isFieldValidating(name)`                 | `formState.validatingFields`                                                                       |                                                           |
-| `setFieldValue(name, value)`              | `clearErrors(name)` → `setValue`                                                                   | antd 会重置该字段错误，RHF 的 `setValue` 不会（已核源码） |
-| `setFieldsValue(values)`                  | `register` → `setValue` → `clearErrors` → `unregister(name, { keepValue: true, keepError: true })` | 见 §6 风险 3                                              |
-| `resetFields(fields?)`                    | `reset` / `resetField`                                                                             | 重置到 `initialValues`                                    |
-| `validateFields(nameList?, config?)`      | `trigger`                                                                                          | `validateOnly` 为近似实现，JSDoc 标注                     |
-| `submit()`                                | `requestSubmit()`                                                                                  |                                                           |
-| `scrollToField(name, options)`            | 查 `[data-field-name]` + `setFocus`                                                                |                                                           |
-| `getFieldInstance(name)`                  | 不支持                                                                                             | 直接抛错并提示用 `getFieldValue`                          |
-| `setFields(fields)`                       | 不支持                                                                                             | 抛错，提示用 `setFieldsValue`                             |
+- 实例由 `Form.useForm()` 创建（此时尚未接 RHF），渲染 `<Form>` 时通过 `_bind(rhf)` 接入；
+  `<Form>` 未收到 `form` 时自建一个实例。
+- 之所以这样分层：若反过来由 `Form` 内部另建 RHF，传了外部实例的 `<Form form={form}>`
+  会让注入的合成 resolver 与字段 rules **全部失效**（实测：非法值照样提交成功）。
+
+其余方法映射如下：
+
+| antd FormInstance                         | 落到 RHF                                                                                           | 说明                                                                      |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `getFieldValue(name)`                     | `getValues(name)`                                                                                  |                                                                           |
+| `getFieldsValue(nameList?, filterFunc?)`  | `getValues(nameList)` / `getValues()`                                                              | `getValues(true)` 会抛错，不可用                                          |
+| `getFieldError(name)`                     | `formState.errors` 经 namePath 取值                                                                | 返回 `string[]`                                                           |
+| `getFieldsError(nameList?)`               | 同上，批量                                                                                         | 返回 `{ name, errors }[]`                                                 |
+| `isFieldTouched(name)`                    | `formState.touchedFields`                                                                          |                                                                           |
+| `isFieldsTouched(nameList?, allTouched?)` | 同上                                                                                               |                                                                           |
+| `isFieldValidating(name)`                 | `formState.validatingFields`                                                                       |                                                                           |
+| `setFieldValue(name, value)`              | `clearErrors(name)` → `setValue`                                                                   | antd 会重置该字段错误，RHF 的 `setValue` 不会（已核源码）                 |
+| `setFieldsValue(values)`                  | `register` → `setValue` → `clearErrors` → `unregister(name, { keepValue: true, keepError: true })` | 见 §6 风险 3                                                              |
+| `resetFields(fields?)`                    | `reset` / `resetField`                                                                             | 重置到 `initialValues`                                                    |
+| `validateFields(nameList?, config?)`      | `trigger`                                                                                          | `validateOnly` 为近似实现，JSDoc 标注                                     |
+| `submit()`                                | `requestSubmit()`                                                                                  |                                                                           |
+| `scrollToField(name, options)`            | 查 `[data-field-name]` + DOM 聚焦可聚焦子元素                                                      | 不用 RHF `setFocus`：适配表未注入 ref，且 Select 等的可聚焦节点不是根元素 |
+| `getFieldInstance(name)`                  | 不支持                                                                                             | 直接抛错并提示用 `getFieldValue`                                          |
+| `setFields(fields)`                       | 不支持                                                                                             | 抛错，提示用 `setFieldsValue`                                             |
 
 **刻意对齐的语义**：`setFieldsValue` / `setFieldValue` 不触发 `onValuesChange` / `onFieldsChange`
 （与 antd 一致，仅用户交互触发）。
@@ -103,7 +110,9 @@ Form (form/)
 - `validateFields({ validateOnly: true })`：RHF 无"只校验不显示错误"，用 `{ shouldFocus: false }` 近似。
 - `Form.Item` 的 `dependencies` **不用 RHF 的 `register({ deps })`**（实测其重校验不可靠），
   改为 Form 内部用 `watch` 订阅依赖字段，变化时 `trigger(name)`（实测可行）。
-- `Form.Item` 的 `shouldUpdate` 用 `useWatch` 订阅 + 比较函数实现，属近似。
+- `Form.Item` 的 `shouldUpdate` **只支持布尔**：`true` 时订阅全表、任一字段变化即重渲染；
+  函数形式（比较上一次值决定是否重渲染）需要读取渲染期的上一次值，会触发 React Compiler
+  的 refs 规则，故不实现，传函数时按 `true` 处理并开发期告警。
 
 ### 3.3 值绑定：控件适配表
 
@@ -119,7 +128,10 @@ Form (form/)
 
 - `valuePropName` / `trigger` 显式传入时**优先于**适配表。
 - 识别不中时回退 `value` + `onChange`（antd 默认语义）。
-- 适配表同时输出 `aria-invalid`、`id`、`ref`（`setFocus` 用）。
+- 适配表同时输出 `aria-invalid`、`id`。**注入前必须归一 `value`**：Base UI 的 `Input`
+  （`Field.Control`）用 `useControlled` 判定受控与否，首次渲染拿到 `undefined` 就会永久按
+  非受控处理，之后 store 里的值再变也不会回填，表现为「store 有值、输入框却空着」。
+  `checked` 类控件同理，`undefined` 归一为 `false`。
 - **`aria-invalid` 的落点随控件而异**（已实测）：`Select` 需放在 `SelectTrigger` 上
   （`SelectRoot` 不透传未知属性）；`Switch` / `Checkbox` / `RadioGroup` 放根组件即可透传。
 
@@ -141,6 +153,14 @@ Form (form/)
 因此 Form 组件在内部**合成一个 resolver**：若用户传了 `resolver`（如 `zodResolver`），先跑它取错误，
 再按 `rules` 注册表补跑字段级规则，合并成一个 `errors` 对象返回。这样两者同时生效、互不干扰，
 且 `rules` 顺序语义得以保留（`validateFirst` 短路在合成层内实现）。
+
+两点必须注意（均为实测踩到的坑）：
+
+- 字段规则一律针对**原始输入值**校验，不要用用户 resolver 返回的 `values`：
+  `zodResolver` 校验失败时返回的 `values` 是空对象，拿它取字段值会全部取到 `undefined`，
+  所有 `required` 规则会误报「必填」。
+- `onFinish` 收到的仍是 resolver 返回的 `values`（与 RHF 一致）。若 zod schema 只覆盖部分字段，
+  其余字段会被 zod 剥掉，需用 `z.looseObject`。
 
 ### 3.5 其余 Form.Item 属性的落地
 

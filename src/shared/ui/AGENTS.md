@@ -7,9 +7,9 @@
 | 分类目录         | 放什么                                       | 现有组件                                                                                |
 | ---------------- | -------------------------------------------- | --------------------------------------------------------------------------------------- |
 | `general/`       | 通用：无明确语义归属的基础原子件             | `button` / `badge` / `separator`                                                        |
-| `layout/`        | 布局：只负责排布与容器，不承载数据语义       | `card` / `carousel` / `stack`                                                           |
+| `layout/`        | 布局：只负责排布与容器，不承载数据语义       | `card` / `carousel` / `col` / `row` / `stack`                                            |
 | `navigation/`    | 导航：页面/视图之间的切换与位置指示          | `breadcrumb` / `dropdown-menu` / `tabs`                                                 |
-| `data-entry/`    | 数据录入：接收用户输入                       | `attachment` / `checkbox` / `field` / `input` / `label` / `radio-group` / `select` / `switch` / `textarea` |
+| `data-entry/`    | 数据录入：接收用户输入                       | `attachment` / `checkbox` / `field` / `form` / `input` / `label` / `radio-group` / `select` / `switch` / `textarea` |
 | `data-display/`  | 数据展示：只读呈现数据或占位                 | `data-table` / `empty` / `progress` / `skeleton` / `table`                              |
 | `feedback/`      | 反馈：告知用户状态、结果或补充说明           | `dialog` / `error-alert` / `sonner` / `tooltip`                                         |
 
@@ -20,6 +20,10 @@
 - `attachment` 语义是待上传的文件，归 `data-entry`。
 
 暂无 `misc/`：当前组件都有明确归属，真出现无法归类的再建，并同步更新本表。
+
+子系统（如 `form`）可建**同名目录**，入口为 `index.jsx`，内部按职责拆成多个文件
+（context / hooks / 纯函数 / 子组件）。判断标准：单个文件预计超过 300 行，
+或内部有多份互不导出的私有 context 时建目录；否则维持「一个组件一个 `.jsx` 文件」。
 
 ## 引用约定
 

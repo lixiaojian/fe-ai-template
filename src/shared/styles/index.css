@@ -7,6 +7,14 @@
    @source 路径相对于本 CSS 文件，故为 ../../../docs。模板暂无 docs/ 目录，保留以备后用。 */
 @source not "../../../docs";
 
+/* 栅格类名：Row/Col 按属性动态拼类名（col-span-${n}），Tailwind 扫不到字符串以外的形态，
+   故用 @source inline 显式生成。花括号展开由 Tailwind 4 原生支持，
+   覆盖 0-24 span、1-25 起始线/结束线与全部断点变体。 */
+@source inline("{,sm:,md:,lg:,xl:,2xl:}col-span-{0..24}");
+@source inline("{,sm:,md:,lg:,xl:,2xl:}col-start-{1..25}");
+@source inline("{,sm:,md:,lg:,xl:,2xl:}col-end-{1..25}");
+@source inline("grid-cols-24");
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
