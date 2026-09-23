@@ -15,7 +15,8 @@
 
 ## 快速开始
 
-要求 Node `^20.19.0 || >=22.12.0`（Vite 8 / ESLint 10 的下限）。
+要求 Node `^22.13.0 || >=24`（见 `package.json` 的 `engines`）——这是 ESLint 10 的下限，
+且排除了已 EOL 的 Node 20 / 23。
 
 ```bash
 pnpm install
