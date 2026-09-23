@@ -1,0 +1,9 @@
+dist
+node_modules
+pnpm-lock.yaml
+*.min.js
+.idea
+demo
+# 从 shadcn 上游 vendor 的工具类：prettier 会把 calc(alpha * 0.2) 改成 calc(alpha* 0.2)，
+# 属纯噪声改动，且该文件刻意保持与上游一致的排版，故排除
+src/shared/styles/utilities.css

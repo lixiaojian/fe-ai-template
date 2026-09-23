@@ -1,0 +1,76 @@
+/**
+ * @file 全站设计 token（唯一颜色来源）
+ * @description 暗色平面风格色板。挂在 :root 而非 zone 类上，使 Portal 弹层同样可解析。
+ *              三层结构：原始色板 --c-* → zone token（业务代码用）→ shadcn 语义 token。
+ *              修改主色只需改 --c-brand 一处。
+ *              项目无浅色模式需求，:root 即暗色值；html 上的 dark 类保留用于 Tailwind dark: 变体。
+ */
+
+:root {
+    /* ===== 原始色板（唯一颜色来源）===== */
+    --c-ink: #101010; /* 页面底 */
+    --c-surface: #1a1a1a; /* 卡片/区块 */
+    --c-surface-2: #242424; /* hover / 次级面 */
+    --c-surface-3: #1f1f1f; /* 输入框 */
+    --c-brand: #3860f4; /* 主色 */
+    --c-brand-hi: #5177f6; /* 主色 hover */
+    --c-brand-lo: #2b4fd8; /* 主色 active */
+    --c-brand-text: #8aa4ff; /* 暗底文字用主色：在 #1a1a1a 上 7.32:1、#242424 上 6.5:1 */
+    --c-danger: #e63946; /* 价格/折扣/停止态 */
+    --c-danger-text: #f2565f; /* 暗底错误文字：在 #1a1a1a 上 5.17:1 */
+    --c-danger-text-light: #c62828; /* 浅底错误文字：on #ffffff 5.62:1 */
+    --c-success: #2ecc71; /* 运行中 */
+    --c-warning: #f5a623; /* 即将到期 */
+    --c-white: #ffffff;
+    --c-gray-1: #b3b3b3;
+    --c-gray-2: #8b8b8b; /* 三级文字：在 #101010 上 5.59:1、#1a1a1a 上 5.11:1、#1f1f1f 上 4.84:1、#242424(hover 面) 上 4.56:1 */
+    --c-line: #2e2e2e;
+    --c-line-2: #3d3d3d;
+
+    /* ===== 字体 ===== */
+    --font-sans:
+        -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', Roboto,
+        sans-serif;
+
+    /* ===== zone token（业务代码使用）===== */
+    --bg-deep: var(--c-ink);
+    --bg-card: var(--c-surface);
+    --bg-card-hover: var(--c-surface-2);
+    --bg-soft: var(--c-surface-3);
+    --brand: var(--c-brand);
+    --brand-hi: var(--c-brand-hi);
+    --brand-lo: var(--c-brand-lo);
+    --brand-text: var(--c-brand-text);
+    --danger: var(--c-danger);
+    --danger-text: var(--c-danger-text);
+    --danger-text-light: var(--c-danger-text-light);
+    --success: var(--c-success);
+    --warning: var(--c-warning);
+    --text: var(--c-white);
+    --text-2: var(--c-gray-1);
+    --text-3: var(--c-gray-2);
+    --line: var(--c-line);
+    --line-2: var(--c-line-2);
+
+    /* ===== shadcn 语义 token（与上同源，完整色值格式）===== */
+    --background: var(--c-ink);
+    --foreground: var(--c-white);
+    --card: var(--c-surface);
+    --card-foreground: var(--c-white);
+    --popover: var(--c-surface);
+    --popover-foreground: var(--c-white);
+    --primary: var(--c-brand);
+    --primary-foreground: var(--c-white);
+    --secondary: var(--c-surface-2);
+    --secondary-foreground: var(--c-white);
+    --muted: var(--c-surface-2);
+    --muted-foreground: var(--c-gray-1);
+    --accent: var(--c-surface-2);
+    --accent-foreground: var(--c-white);
+    --destructive: var(--c-danger);
+    --destructive-foreground: var(--c-white);
+    --border: var(--c-line);
+    --input: var(--c-line);
+    --ring: var(--c-brand);
+    --radius: 0px;
+}

@@ -1,0 +1,167 @@
+/**
+ * @file 通用工具类（Tailwind v4 @utility）
+ * @description 收录 shadcn 官方工具类中本项目实际使用的部分。
+ *
+ *              为什么不直接 `@import 'shadcn/tailwind.css'`：该文件除工具类外还重定义了
+ *              `data-open` / `data-closed` / `data-checked` / `data-disabled` / `data-horizontal`
+ *              等 `@custom-variant`，会把项目里所有裸 `data-*:` 工具类的选择器从 `[data-x]`
+ *              改写成 `:where([data-state="x"]), :where([data-x]:not([data-x="false"]))`。
+ *              `:where()` 特异性为 0，既有规则的特异性会从 0,2,0 掉到 0,1,0，级联结果改变，
+ *              影响 dialog / select / switch / checkbox / field / separator 等一批组件。
+ *              故此处只 vendor 需要的工具类，保持既有 `data-*` 变体语义不变。
+ *
+ *              来源：node_modules/shadcn/dist/tailwind.css（shadcn 4.18.0，MIT）。
+ *              搬运时做了两处收敛：
+ *              1. 只保留 shimmer 与 scroll-fade-x，上游其余工具类（shimmer-color-* /
+ *                 shimmer-duration-* / scroll-fade-y / scroll-fade-t …）用到再加；
+ *              2. 上游为每项留了可选覆盖旋钮（--shimmer-color / --shimmer-duration /
+ *                 --shimmer-spread / --scroll-fade-size / --scroll-fade-s-size /
+ *                 --scroll-fade-e-size / --scroll-fade-reveal），本项目一处都没设置过，
+ *                 故把默认值直接内联，去掉 var() 间接层（否则这些变量永远解析不到，
+ *                 IDE 报 "Cannot resolve custom property"）。要恢复可覆盖性时，
+ *                 把内联值换回 `var(--<旋钮名>, <默认值>)` 即可。
+ */
+
+/* ---------------------------------------------------------------------------
+ * shimmer：文字扫光。AttachmentTitle 在 uploading / processing 状态下使用。
+ * ------------------------------------------------------------------------- */
+
+@property --shimmer-angle {
+    syntax: '<angle>';
+    inherits: true;
+    initial-value: 20deg;
+}
+
+@theme inline {
+    @keyframes tw-shimmer {
+        from {
+            background-position: 100% 0;
+        }
+        to {
+            background-position: 0 0;
+        }
+    }
+}
+
+@utility shimmer {
+    --_spread: calc(3ch + 40px);
+    --_base: currentColor;
+    --_highlight: oklch(from currentColor l c h / calc(alpha * 0.2));
+
+    background-image: linear-gradient(
+        calc(90deg + var(--shimmer-angle)),
+        var(--_base) calc(50% - var(--_spread)),
+        color-mix(in oklch, var(--_highlight), var(--_base) 50%) calc(50% - var(--_spread) * 0.5),
+        var(--_highlight) 50%,
+        color-mix(in oklch, var(--_highlight), var(--_base) 50%) calc(50% + var(--_spread) * 0.5),
+        var(--_base) calc(50% + var(--_spread))
+    );
+    background-repeat: no-repeat;
+    background-size: calc(200% + var(--_spread) * 2) 100%;
+    background-position: 0 0;
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: tw-shimmer 2s linear infinite;
+
+    @variant dark {
+        --_highlight: oklch(from currentColor max(0.8, calc(l + 0.4)) c h / calc(alpha + 0.4));
+    }
+
+    &:where([dir='rtl'], [dir='rtl'] *) {
+        animation-direction: reverse;
+    }
+}
+
+/* 无障碍：跟随系统「减弱动态效果」时退回静态文字 */
+@media (prefers-reduced-motion: reduce) {
+    .shimmer {
+        animation: none;
+        background-image: none;
+        -webkit-text-fill-color: currentColor;
+    }
+}
+
+/* ---------------------------------------------------------------------------
+ * scroll-fade-x：横向滚动容器的左右边缘渐隐（纯 CSS 滚动驱动动画，无 JS 监听）。
+ * AttachmentGroup 使用。
+ * ------------------------------------------------------------------------- */
+
+@property --scroll-fade-s {
+    syntax: '<length-percentage>';
+    inherits: false;
+    initial-value: 0px;
+}
+@property --scroll-fade-e {
+    syntax: '<length-percentage>';
+    inherits: false;
+    initial-value: 0px;
+}
+/* 无 initial-value：未显式设置时该变量处于「guaranteed-invalid」态，
+   故下面 var(--scroll-fade-mask, …) 的 fallback 是生效路径，不可省 */
+@property --scroll-fade-mask {
+    syntax: '*';
+    inherits: false;
+}
+
+@theme inline {
+    @keyframes scroll-fade-reveal-s {
+        from {
+            --scroll-fade-s: 0px;
+        }
+        to {
+            --scroll-fade-s: min(12%, calc(var(--spacing) * 10));
+        }
+    }
+    @keyframes scroll-fade-reveal-e {
+        from {
+            --scroll-fade-e: min(12%, calc(var(--spacing) * 10));
+        }
+        to {
+            --scroll-fade-e: 0px;
+        }
+    }
+}
+
+@utility scroll-fade-x {
+    --scroll-fade-inline: linear-gradient(
+        to right,
+        transparent 0,
+        #000 var(--scroll-fade-s),
+        #000 calc(100% - var(--scroll-fade-e)),
+        transparent 100%
+    );
+    &:where([dir='rtl'], [dir='rtl'] *) {
+        --scroll-fade-inline: linear-gradient(
+            to left,
+            transparent 0,
+            #000 var(--scroll-fade-s),
+            #000 calc(100% - var(--scroll-fade-e)),
+            transparent 100%
+        );
+    }
+    -webkit-mask-image: var(--scroll-fade-mask, var(--scroll-fade-inline));
+    mask-image: var(--scroll-fade-mask, var(--scroll-fade-inline));
+    -webkit-mask-composite: source-in;
+    mask-composite: intersect;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+
+    /* 支持滚动驱动动画时，按滚动位置实时收放两侧渐隐 */
+    @supports (animation-timeline: scroll()) {
+        animation:
+            scroll-fade-reveal-s 1ms ease-in-out,
+            scroll-fade-reveal-e 1ms ease-in-out;
+        animation-timeline: scroll(self inline), scroll(self inline);
+        animation-range:
+            0 calc(var(--spacing) * 24),
+            calc(100% - var(--spacing) * 24) 100%;
+        animation-fill-mode: both;
+    }
+
+    /* 不支持时退化为固定渐隐（两端恒有遮罩） */
+    @supports not (animation-timeline: scroll()) {
+        --scroll-fade-s: min(12%, calc(var(--spacing) * 10));
+        --scroll-fade-e: min(12%, calc(var(--spacing) * 10));
+    }
+}

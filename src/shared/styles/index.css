@@ -1,0 +1,94 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import './utilities.css';
+@import './tokens.css';
+
+/* 不扫描 docs/：文档正文里被字面讨论的工具类会被当作候选类名提取，产出永不匹配的死规则。
+   @source 路径相对于本 CSS 文件，故为 ../../../docs。模板暂无 docs/ 目录，保留以备后用。 */
+@source not "../../../docs";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+    /* token 存完整色值（#3860f4 这类），工具类直接 var() 取用即可。
+       透明度修饰符（bg-primary/80）由 Tailwind v4 的 color-mix 实现，不依赖裸 HSL 通道值。 */
+    --color-background: var(--background);
+    --color-foreground: var(--foreground);
+    --color-card: var(--card);
+    --color-card-foreground: var(--card-foreground);
+    --color-popover: var(--popover);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-primary: var(--primary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-secondary: var(--secondary);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-muted: var(--muted);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-accent: var(--accent);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-destructive: var(--destructive);
+    --color-destructive-foreground: var(--destructive-foreground);
+    --color-border: var(--border);
+    --color-input: var(--input);
+    --color-ring: var(--ring);
+
+    /* zone 语义色的工具类映射：生成 bg-brand / text-success / bg-soft / border-line 等类。
+       业务代码与弹层都要用，必须在此登记。 */
+    --color-brand: var(--brand);
+    --color-brand-hi: var(--brand-hi);
+    --color-brand-lo: var(--brand-lo);
+    --color-brand-text: var(--brand-text);
+    --color-success: var(--success);
+    --color-warning: var(--warning);
+    --color-danger: var(--danger);
+    --color-danger-text: var(--danger-text);
+    --color-danger-text-light: var(--danger-text-light);
+    --color-soft: var(--bg-soft);
+    --color-card-hover: var(--bg-card-hover);
+    --color-line: var(--line);
+    --color-line-2: var(--line-2);
+
+    /* 内容容器宽度：各区块共用同一个 max-w-content，保证左右边缘对齐，
+       调宽度只需改这一处。当前模板无消费者，供业务页按需使用。 */
+    --container-content: 1400px;
+
+    /* --radius 为 0，calc(0px - 4px) 会产出负值（无效 CSS），故各档全部固定为 0。
+       必须覆盖 sm/md/lg/xl/2xl/3xl 六档：只写前四档时 2xl/3xl 会保留 Tailwind
+       默认的 1rem，dialog.jsx 的 rounded-2xl 会渲染出 16px 圆角。 */
+    --radius-sm: 0px;
+    --radius-md: 0px;
+    --radius-lg: 0px;
+    --radius-xl: 0px;
+    --radius-2xl: 0px;
+    --radius-3xl: 0px;
+}
+
+@layer base {
+    * {
+        border-color: var(--border);
+    }
+    body {
+        background-color: var(--background);
+        color: var(--foreground);
+    }
+    /* 原生时间控件（input[type='time']）在暗色主题下的适配：
+       让浏览器按暗色渲染时钟图标与弹出的时间选择面板，与页面风格一致 */
+    .dark input[type='time'] {
+        color-scheme: dark;
+    }
+    /* 浏览器自动填充（autofill）会给输入框强制注入白底深色文字。不做铺底色盖回——
+       各输入框真实背景不同（含半透明），铺底必然与直接输入态不一致；改用超长
+       background-color 过渡让注入的背景永不显现，输入框保持原有背景。
+       文字色：Chrome 的注入样式优先级高于普通作者声明，须加 !important 才能覆盖；
+       zone 内文字色为 --text，弹层 Portal 内该变量不可解析，回落到语义前景色 */
+    input:-webkit-autofill,
+    textarea:-webkit-autofill,
+    input:-webkit-autofill:hover,
+    input:-webkit-autofill:focus,
+    textarea:-webkit-autofill:hover,
+    textarea:-webkit-autofill:focus {
+        -webkit-text-fill-color: var(--text, var(--foreground)) !important;
+        caret-color: var(--text, var(--foreground));
+        transition: background-color 999999s ease-in-out 0s;
+    }
+}

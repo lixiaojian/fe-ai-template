@@ -1,0 +1,13 @@
+node_modules
+dist
+build
+.idea
+*.local
+.DS_Store
+.eslintcache
+.claude
+.codegraph
+.playwright-cli/
+.superpowers/
+.env
+.env.*.local
