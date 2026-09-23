@@ -4,14 +4,14 @@
 
 `/src/shared/ui` 下按语义分类存放组件，每个组件一个 `.jsx` 文件，入口为同目录的 `index.js`：
 
-| 分类目录         | 放什么                                       | 现有组件                                                                                |
-| ---------------- | -------------------------------------------- | --------------------------------------------------------------------------------------- |
-| `general/`       | 通用：无明确语义归属的基础原子件             | `button` / `badge` / `separator`                                                        |
-| `layout/`        | 布局：只负责排布与容器，不承载数据语义       | `card` / `carousel` / `col` / `row` / `stack`                                            |
-| `navigation/`    | 导航：页面/视图之间的切换与位置指示          | `breadcrumb` / `dropdown-menu` / `tabs`                                                 |
-| `data-entry/`    | 数据录入：接收用户输入                       | `attachment` / `checkbox` / `field` / `form` / `input` / `label` / `radio-group` / `select` / `switch` / `textarea` |
-| `data-display/`  | 数据展示：只读呈现数据或占位                 | `data-table` / `empty` / `progress` / `skeleton` / `table`                              |
-| `feedback/`      | 反馈：告知用户状态、结果或补充说明           | `dialog` / `error-alert` / `sonner` / `tooltip`                                         |
+| 分类目录        | 放什么                                 | 现有组件                                                                                                            |
+| --------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `general/`      | 通用：无明确语义归属的基础原子件       | `button` / `badge` / `separator`                                                                                    |
+| `layout/`       | 布局：只负责排布与容器，不承载数据语义 | `card` / `carousel` / `col` / `row` / `stack`                                                                       |
+| `navigation/`   | 导航：页面/视图之间的切换与位置指示    | `breadcrumb` / `dropdown-menu` / `tabs`                                                                             |
+| `data-entry/`   | 数据录入：接收用户输入                 | `attachment` / `checkbox` / `field` / `form` / `input` / `label` / `radio-group` / `select` / `switch` / `textarea` |
+| `data-display/` | 数据展示：只读呈现数据或占位           | `data-table` / `empty` / `progress` / `skeleton` / `table`                                                          |
+| `feedback/`     | 反馈：告知用户状态、结果或补充说明     | `dialog` / `error-alert` / `sonner` / `tooltip`                                                                     |
 
 归类有歧义时的判定依据：
 
@@ -24,6 +24,22 @@
 子系统（如 `form`）可建**同名目录**，入口为 `index.jsx`，内部按职责拆成多个文件
 （context / hooks / 纯函数 / 子组件）。判断标准：单个文件预计超过 300 行，
 或内部有多份互不导出的私有 context 时建目录；否则维持「一个组件一个 `.jsx` 文件」。
+
+## 测试
+
+共享 UI 组件的测试放在同级 `__tests__/` 目录，文件名 `<组件>.test.jsx`：
+
+```
+layout/col.jsx          → layout/__tests__/col.test.jsx
+data-entry/form/index.jsx → data-entry/form/__tests__/form.test.jsx
+```
+
+- 测试内引用被测模块一律走 `@shared/*` 精确路径（与业务代码一致），因此移动测试文件不需要改 import。
+- 运行：`pnpm test`（等价于 `node --import ./scripts/register-loader.mjs --test "src/**/*.test.{js,jsx}"`）。
+  `scripts/test-loader.mjs` 负责把 `@shared/*` 别名、省略的扩展名与 JSX 转换接进 Node 内置测试运行器，
+  **不引入任何测试框架依赖**。
+- 组件渲染断言用 `react-dom/server` 的 `renderToStaticMarkup`；需要交互行为的场景用
+  `playwright-cli` 在示例页上验证（见根目录 `AGENTS.md`）。
 
 ## 引用约定
 

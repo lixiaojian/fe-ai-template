@@ -13,6 +13,7 @@
         "build": "vite build --mode production",
         "preview": "vite preview",
         "lint": "eslint . --cache",
+        "test": "node --import ./scripts/register-loader.mjs --test \"src/**/*.test.{js,jsx}\"",
         "format": "prettier --write ."
     },
     "dependencies": {

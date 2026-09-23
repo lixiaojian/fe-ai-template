@@ -23,8 +23,8 @@
 - 直接子元素变体用 `*:` 前缀，不写 `[&>[attr]]`。
 - 列表渲染的 `key` 无 lint 覆盖，靠 code review 把关。
 - Playwright 产物落 `.playwright-cli/`，任务收尾删除；收尾复查 `git status`。
-- 测试文件与源文件**同目录**，命名 `<name>.test.jsx`。
-- 测试命令统一为：`node --import ./scripts/register-loader.mjs --test <文件或 glob>`。
+- 测试文件放在源文件同级的 `__tests__/` 目录，命名 `<name>.test.jsx`。
+- 测试命令统一为 `pnpm test`；只跑单个文件时用 `node --import ./scripts/register-loader.mjs --test <文件>`。
 
 ## Review Focus
 
@@ -68,7 +68,7 @@
 - Modify: `src/shared/styles/index.css`（在 `@source not "../../../docs"` 之后追加）
 - Create: `src/shared/ui/layout/col.jsx`
 - Create: `src/shared/ui/layout/row.jsx`
-- Create: `src/shared/ui/layout/col.test.jsx`
+- Create: `src/shared/ui/layout/__tests__/col.test.jsx`
 - Modify: `src/shared/ui/index.js`
 
 **Interfaces:**
@@ -102,7 +102,7 @@
 
 - [ ] **Step 2: 写失败测试**
 
-创建 `src/shared/ui/layout/col.test.jsx`：
+创建 `src/shared/ui/layout/__tests__/col.test.jsx`：
 
 ```jsx
 /**
@@ -162,7 +162,7 @@ test('空属性返回空值，不产生多余空格', () => {
 - [ ] **Step 3: 运行测试确认失败**
 
 ```bash
-node --import ./scripts/register-loader.mjs --test src/shared/ui/layout/col.test.jsx
+pnpm test   # 或精确到文件：node --import ./scripts/register-loader.mjs --test src/shared/ui/layout/__tests__/col.test.jsx
 ```
 
 Expected: FAIL — 无法解析 `@shared/ui/layout/col`。
@@ -310,7 +310,7 @@ export { Col, colClassName, colStyle };
 - [ ] **Step 5: 运行测试确认通过**
 
 ```bash
-node --import ./scripts/register-loader.mjs --test src/shared/ui/layout/col.test.jsx
+pnpm test   # 或精确到文件：node --import ./scripts/register-loader.mjs --test src/shared/ui/layout/__tests__/col.test.jsx
 ```
 
 Expected: PASS（7 个测试）。
@@ -420,7 +420,7 @@ Expected: lint 与 build 通过，`grep` 输出 ≥ 1（栅格类名确实进了
 - [ ] **Step 9: 提交**
 
 ```bash
-git add src/shared/ui/layout/col.jsx src/shared/ui/layout/row.jsx src/shared/ui/layout/col.test.jsx src/shared/styles/index.css src/shared/ui/index.js
+git add src/shared/ui/layout/col.jsx src/shared/ui/layout/row.jsx src/shared/ui/layout/__tests__/col.test.jsx src/shared/styles/index.css src/shared/ui/index.js
 git commit -m "feat(ui): 新增 24 列栅格 Row/Col 组件"
 ```
 
@@ -431,7 +431,7 @@ git commit -m "feat(ui): 新增 24 列栅格 Row/Col 组件"
 **Files:**
 
 - Create: `src/shared/ui/data-entry/form/rules.js`
-- Create: `src/shared/ui/data-entry/form/rules.test.jsx`
+- Create: `src/shared/ui/data-entry/form/__tests__/rules.test.jsx`
 
 **Interfaces:**
 
@@ -442,7 +442,7 @@ git commit -m "feat(ui): 新增 24 列栅格 Row/Col 组件"
 
 - [ ] **Step 1: 写失败测试**
 
-创建 `src/shared/ui/data-entry/form/rules.test.jsx`：
+创建 `src/shared/ui/data-entry/form/__tests__/rules.test.jsx`：
 
 ```jsx
 /**
@@ -637,7 +637,7 @@ test('未给 message 时使用内置默认文案', async () => {
 - [ ] **Step 2: 运行测试确认失败**
 
 ```bash
-node --import ./scripts/register-loader.mjs --test src/shared/ui/data-entry/form/rules.test.jsx
+pnpm test   # 或精确到文件：node --import ./scripts/register-loader.mjs --test src/shared/ui/data-entry/form/__tests__/rules.test.jsx
 ```
 
 Expected: FAIL — 无法解析 `@shared/ui/data-entry/form/rules`。
@@ -882,7 +882,7 @@ export { compileRules, formatMessage, isEmptyValue };
 - [ ] **Step 4: 运行测试确认通过**
 
 ```bash
-node --import ./scripts/register-loader.mjs --test src/shared/ui/data-entry/form/rules.test.jsx
+pnpm test   # 或精确到文件：node --import ./scripts/register-loader.mjs --test src/shared/ui/data-entry/form/__tests__/rules.test.jsx
 ```
 
 Expected: PASS（21 个测试）。若 `min / max` 或 `len` 的数字分支断言不符，按实际语义修正实现而不是改测试。
@@ -890,7 +890,7 @@ Expected: PASS（21 个测试）。若 `min / max` 或 `len` 的数字分支断�
 - [ ] **Step 5: 提交**
 
 ```bash
-git add src/shared/ui/data-entry/form/rules.js src/shared/ui/data-entry/form/rules.test.jsx
+git add src/shared/ui/data-entry/form/rules.js src/shared/ui/data-entry/form/__tests__/rules.test.jsx
 git commit -m "feat(form): 新增 rules 编译器与 message 模板"
 ```
 
@@ -902,7 +902,7 @@ git commit -m "feat(form): 新增 rules 编译器与 message 模板"
 
 - Create: `src/shared/ui/data-entry/form/context.js`
 - Create: `src/shared/ui/data-entry/form/field-adapter.js`
-- Create: `src/shared/ui/data-entry/form/field-adapter.test.jsx`
+- Create: `src/shared/ui/data-entry/form/__tests__/field-adapter.test.jsx`
 
 **Interfaces:**
 
@@ -917,7 +917,7 @@ git commit -m "feat(form): 新增 rules 编译器与 message 模板"
 
 - [ ] **Step 1: 写失败测试**
 
-创建 `src/shared/ui/data-entry/form/field-adapter.test.jsx`：
+创建 `src/shared/ui/data-entry/form/__tests__/field-adapter.test.jsx`：
 
 ```jsx
 /**
@@ -1126,7 +1126,7 @@ test('子元素是数组时取第一个并告警', () => {
 - [ ] **Step 2: 运行测试确认失败**
 
 ```bash
-node --import ./scripts/register-loader.mjs --test src/shared/ui/data-entry/form/field-adapter.test.jsx
+pnpm test   # 或精确到文件：node --import ./scripts/register-loader.mjs --test src/shared/ui/data-entry/form/__tests__/field-adapter.test.jsx
 ```
 
 Expected: FAIL — 无法解析 `@shared/ui/data-entry/form/field-adapter`。
@@ -1297,7 +1297,7 @@ export { injectFieldProps, getFieldBinding };
 - [ ] **Step 5: 运行测试确认通过**
 
 ```bash
-node --import ./scripts/register-loader.mjs --test src/shared/ui/data-entry/form/field-adapter.test.jsx
+pnpm test   # 或精确到文件：node --import ./scripts/register-loader.mjs --test src/shared/ui/data-entry/form/__tests__/field-adapter.test.jsx
 ```
 
 Expected: PASS（12 个测试）。
@@ -1305,7 +1305,7 @@ Expected: PASS（12 个测试）。
 - [ ] **Step 6: 提交**
 
 ```bash
-git add src/shared/ui/data-entry/form/context.js src/shared/ui/data-entry/form/field-adapter.js src/shared/ui/data-entry/form/field-adapter.test.jsx
+git add src/shared/ui/data-entry/form/context.js src/shared/ui/data-entry/form/field-adapter.js src/shared/ui/data-entry/form/__tests__/field-adapter.test.jsx
 git commit -m "feat(form): 新增内部 context 与控件适配表"
 ```
 
@@ -1316,7 +1316,7 @@ git commit -m "feat(form): 新增内部 context 与控件适配表"
 **Files:**
 
 - Create: `src/shared/ui/data-entry/form/field-layout.js`
-- Create: `src/shared/ui/data-entry/form/field-layout.test.jsx`
+- Create: `src/shared/ui/data-entry/form/__tests__/field-layout.test.jsx`
 
 **Interfaces:**
 
@@ -1327,7 +1327,7 @@ git commit -m "feat(form): 新增内部 context 与控件适配表"
 
 - [ ] **Step 1: 写失败测试**
 
-创建 `src/shared/ui/data-entry/form/field-layout.test.jsx`：
+创建 `src/shared/ui/data-entry/form/__tests__/field-layout.test.jsx`：
 
 ```jsx
 /**
@@ -1370,7 +1370,7 @@ test('内置默认栅格', () => {
 - [ ] **Step 2: 运行测试确认失败**
 
 ```bash
-node --import ./scripts/register-loader.mjs --test src/shared/ui/data-entry/form/field-layout.test.jsx
+pnpm test   # 或精确到文件：node --import ./scripts/register-loader.mjs --test src/shared/ui/data-entry/form/__tests__/field-layout.test.jsx
 ```
 
 Expected: FAIL — 无法解析模块。
@@ -1413,7 +1413,7 @@ export { normalizeColProps, DEFAULT_LABEL_COL, DEFAULT_WRAPPER_COL };
 - [ ] **Step 4: 运行测试确认通过**
 
 ```bash
-node --import ./scripts/register-loader.mjs --test src/shared/ui/data-entry/form/field-layout.test.jsx
+pnpm test   # 或精确到文件：node --import ./scripts/register-loader.mjs --test src/shared/ui/data-entry/form/__tests__/field-layout.test.jsx
 ```
 
 Expected: PASS（5 个测试）。
@@ -1421,7 +1421,7 @@ Expected: PASS（5 个测试）。
 - [ ] **Step 5: 提交**
 
 ```bash
-git add src/shared/ui/data-entry/form/field-layout.js src/shared/ui/data-entry/form/field-layout.test.jsx
+git add src/shared/ui/data-entry/form/field-layout.js src/shared/ui/data-entry/form/__tests__/field-layout.test.jsx
 git commit -m "feat(form): 新增 labelCol/wrapperCol 布局解析"
 ```
 
@@ -1432,7 +1432,7 @@ git commit -m "feat(form): 新增 labelCol/wrapperCol 布局解析"
 **Files:**
 
 - Create: `src/shared/ui/data-entry/form/use-form.js`
-- Create: `src/shared/ui/data-entry/form/use-form.test.jsx`
+- Create: `src/shared/ui/data-entry/form/__tests__/use-form.test.jsx`
 
 **Interfaces:**
 
@@ -1456,7 +1456,7 @@ git commit -m "feat(form): 新增 labelCol/wrapperCol 布局解析"
 
 - [ ] **Step 1: 写失败测试**
 
-创建 `src/shared/ui/data-entry/form/use-form.test.jsx`：
+创建 `src/shared/ui/data-entry/form/__tests__/use-form.test.jsx`：
 
 ```jsx
 /**
@@ -1709,7 +1709,7 @@ test('FormInstance：getFieldInstance / setFields 明确抛错', () => {
 - [ ] **Step 2: 运行测试确认失败**
 
 ```bash
-node --import ./scripts/register-loader.mjs --test src/shared/ui/data-entry/form/use-form.test.jsx
+pnpm test   # 或精确到文件：node --import ./scripts/register-loader.mjs --test src/shared/ui/data-entry/form/__tests__/use-form.test.jsx
 ```
 
 Expected: FAIL — 无法解析模块。
@@ -2147,7 +2147,7 @@ export {
 - [ ] **Step 4: 运行测试确认通过**
 
 ```bash
-node --import ./scripts/register-loader.mjs --test src/shared/ui/data-entry/form/use-form.test.jsx
+pnpm test   # 或精确到文件：node --import ./scripts/register-loader.mjs --test src/shared/ui/data-entry/form/__tests__/use-form.test.jsx
 ```
 
 Expected: PASS（14 个测试）。若 `isFieldTouched` 或 `validateFields` 断言不符，按实际语义修正实现。
@@ -2155,7 +2155,7 @@ Expected: PASS（14 个测试）。若 `isFieldTouched` 或 `validateFields` 断
 - [ ] **Step 5: 提交**
 
 ```bash
-git add src/shared/ui/data-entry/form/use-form.js src/shared/ui/data-entry/form/use-form.test.jsx
+git add src/shared/ui/data-entry/form/use-form.js src/shared/ui/data-entry/form/__tests__/use-form.test.jsx
 git commit -m "feat(form): 新增 useForm 包装、合成 resolver 与 FormInstance 适配"
 ```
 
@@ -2166,7 +2166,7 @@ git commit -m "feat(form): 新增 useForm 包装、合成 resolver 与 FormInsta
 **Files:**
 
 - Create: `src/shared/ui/data-entry/form/form-item.jsx`
-- Create: `src/shared/ui/data-entry/form/form-item.test.jsx`
+- Create: `src/shared/ui/data-entry/form/__tests__/form-item.test.jsx`
 
 **Interfaces:**
 
@@ -2186,7 +2186,7 @@ git commit -m "feat(form): 新增 useForm 包装、合成 resolver 与 FormInsta
 
 - [ ] **Step 1: 写失败测试**
 
-创建 `src/shared/ui/data-entry/form/form-item.test.jsx`：
+创建 `src/shared/ui/data-entry/form/__tests__/form-item.test.jsx`：
 
 ```jsx
 /**
@@ -2238,7 +2238,7 @@ test('显式 validateStatus 覆盖推导结果', () => {
 - [ ] **Step 2: 运行测试确认失败**
 
 ```bash
-node --import ./scripts/register-loader.mjs --test src/shared/ui/data-entry/form/form-item.test.jsx
+pnpm test   # 或精确到文件：node --import ./scripts/register-loader.mjs --test src/shared/ui/data-entry/form/__tests__/form-item.test.jsx
 ```
 
 Expected: FAIL — 无法解析模块。
@@ -2852,7 +2852,7 @@ export { FormItem, useItemStatus, resolveStatus };
 - [ ] **Step 4: 运行测试确认通过**
 
 ```bash
-node --import ./scripts/register-loader.mjs --test src/shared/ui/data-entry/form/form-item.test.jsx
+pnpm test   # 或精确到文件：node --import ./scripts/register-loader.mjs --test src/shared/ui/data-entry/form/__tests__/form-item.test.jsx
 ```
 
 Expected: PASS（5 个测试）。
@@ -2860,7 +2860,7 @@ Expected: PASS（5 个测试）。
 - [ ] **Step 5: 提交**
 
 ```bash
-git add src/shared/ui/data-entry/form/form-item.jsx src/shared/ui/data-entry/form/form-item.test.jsx
+git add src/shared/ui/data-entry/form/form-item.jsx src/shared/ui/data-entry/form/__tests__/form-item.test.jsx
 git commit -m "feat(form): 新增 Form.Item"
 ```
 
@@ -2871,7 +2871,7 @@ git commit -m "feat(form): 新增 Form.Item"
 **Files:**
 
 - Create: `src/shared/ui/data-entry/form/form-list.jsx`
-- Create: `src/shared/ui/data-entry/form/form-list.test.jsx`
+- Create: `src/shared/ui/data-entry/form/__tests__/form-list.test.jsx`
 
 **Interfaces:**
 
@@ -2890,7 +2890,7 @@ git commit -m "feat(form): 新增 Form.Item"
 
 - [ ] **Step 1: 写失败测试**
 
-创建 `src/shared/ui/data-entry/form/form-list.test.jsx`：
+创建 `src/shared/ui/data-entry/form/__tests__/form-list.test.jsx`：
 
 ```jsx
 /**
@@ -2960,7 +2960,7 @@ test('move 走 RHF 的 move，不是 swap', () => {
 - [ ] **Step 2: 运行测试确认失败**
 
 ```bash
-node --import ./scripts/register-loader.mjs --test src/shared/ui/data-entry/form/form-list.test.jsx
+pnpm test   # 或精确到文件：node --import ./scripts/register-loader.mjs --test src/shared/ui/data-entry/form/__tests__/form-list.test.jsx
 ```
 
 Expected: FAIL — 无法解析模块。
@@ -3103,7 +3103,7 @@ export { FormList, FormErrorList, createListOperations };
 - [ ] **Step 4: 运行测试确认通过**
 
 ```bash
-node --import ./scripts/register-loader.mjs --test src/shared/ui/data-entry/form/form-list.test.jsx
+pnpm test   # 或精确到文件：node --import ./scripts/register-loader.mjs --test src/shared/ui/data-entry/form/__tests__/form-list.test.jsx
 ```
 
 Expected: PASS（6 个测试）。
@@ -3111,7 +3111,7 @@ Expected: PASS（6 个测试）。
 - [ ] **Step 5: 提交**
 
 ```bash
-git add src/shared/ui/data-entry/form/form-list.jsx src/shared/ui/data-entry/form/form-list.test.jsx
+git add src/shared/ui/data-entry/form/form-list.jsx src/shared/ui/data-entry/form/__tests__/form-list.test.jsx
 git commit -m "feat(form): 新增 Form.List 与 Form.ErrorList"
 ```
 
@@ -3122,7 +3122,7 @@ git commit -m "feat(form): 新增 Form.List 与 Form.ErrorList"
 **Files:**
 
 - Create: `src/shared/ui/data-entry/form/index.jsx`
-- Create: `src/shared/ui/data-entry/form/form.test.jsx`
+- Create: `src/shared/ui/data-entry/form/__tests__/form.test.jsx`
 - Modify: `src/shared/ui/index.js`
 - Modify: `src/shared/ui/AGENTS.md`
 
@@ -3141,7 +3141,7 @@ git commit -m "feat(form): 新增 Form.List 与 Form.ErrorList"
 
 - [ ] **Step 1: 写失败测试**
 
-创建 `src/shared/ui/data-entry/form/form.test.jsx`：
+创建 `src/shared/ui/data-entry/form/__tests__/form.test.jsx`：
 
 ```jsx
 /**
@@ -3207,7 +3207,7 @@ test('Form.Item 在 Form 外使用时报错', () => {
 - [ ] **Step 2: 运行测试确认失败**
 
 ```bash
-node --import ./scripts/register-loader.mjs --test src/shared/ui/data-entry/form/form.test.jsx
+pnpm test   # 或精确到文件：node --import ./scripts/register-loader.mjs --test src/shared/ui/data-entry/form/__tests__/form.test.jsx
 ```
 
 Expected: FAIL — 无法解析模块。
@@ -3454,7 +3454,7 @@ export {
 - [ ] **Step 4: 运行测试确认通过**
 
 ```bash
-node --import ./scripts/register-loader.mjs --test src/shared/ui/data-entry/form/form.test.jsx
+pnpm test   # 或精确到文件：node --import ./scripts/register-loader.mjs --test src/shared/ui/data-entry/form/__tests__/form.test.jsx
 ```
 
 Expected: PASS（8 个测试）。
@@ -3511,7 +3511,7 @@ Expected: 均通过。
 - [ ] **Step 8: 提交**
 
 ```bash
-git add src/shared/ui/data-entry/form/index.jsx src/shared/ui/data-entry/form/form.test.jsx src/shared/ui/index.js src/shared/ui/AGENTS.md
+git add src/shared/ui/data-entry/form/index.jsx src/shared/ui/data-entry/form/__tests__/form.test.jsx src/shared/ui/index.js src/shared/ui/AGENTS.md
 git commit -m "feat(form): 新增 Form 主体与聚合导出"
 ```
 
@@ -3844,7 +3844,7 @@ git commit -m "feat(app1): 新增 Form 示例页"
 
 - [x] `pnpm lint` 通过
 - [x] `pnpm build` 通过
-- [x] `node --import ./scripts/register-loader.mjs --test "src/**/*.test.jsx"` 全绿（79 个测试）
+- [x] `pnpm test` 全绿（82 个测试）
 - [x] Playwright 断言通过（见下）
 - [x] `.playwright-cli/` 已清理，`git status` 无残留
 - [x] `src/shared/ui/AGENTS.md` 已更新

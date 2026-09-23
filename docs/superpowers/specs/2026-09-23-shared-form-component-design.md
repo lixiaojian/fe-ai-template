@@ -303,8 +303,8 @@ src/shared/ui/layout/col.jsx   # 新增
 2. `pnpm build` 通过。
 3. `pnpm test` 通过 —— 新增 Node 内置测试：`scripts/test-loader.mjs`（把 `@shared/*` 别名、
    省略扩展名、JSX 转换接进 `node --test`）+ `scripts/register-loader.mjs`，
-   测试文件与源文件同目录（`form/*.test.jsx`），脚本为
-   `node --import ./scripts/register-loader.mjs --test "src/**/*.test.jsx"`。
+   测试文件放在源文件同级的 `__tests__/` 目录（`form/__tests__/*.test.jsx`），
+   脚本为 `pnpm test`（即 `node --import ./scripts/register-loader.mjs --test "src/**/*.test.{js,jsx}"`）。
    纯逻辑（rules 编译、message 模板、namePath、FormInstance 适配、Col 类名映射）用
    `createFormControl` + `react-dom/server` 直接断言，不引入任何新依赖。
 4. `src/app1/pages/form-demo.jsx` 示例页，覆盖矩阵：
