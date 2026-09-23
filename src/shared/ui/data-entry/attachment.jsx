@@ -9,7 +9,7 @@
 import { cva } from 'class-variance-authority';
 import { cn } from 'cn';
 
-import { Button } from '@shared/ui/button';
+import { Button } from '@shared/ui/general/button';
 
 /**
  * Attachment 根容器样式变体定义。

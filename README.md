@@ -55,7 +55,7 @@ pnpm dev
 │   └── shared/
 │       ├── components/  # 跨应用共享的业务组件
 │       ├── hooks/       # 共享 Hooks
-│       ├── ui/          # shadcn/ui 组件
+│       ├── ui/          # shadcn/ui 组件（按 general/layout/... 分类，index.js 统一导出）
 │       ├── styles/      # Tailwind 入口和 CSS 变量
 │       ├── store/       # Zustand store
 │       └── lib/         # 工具函数（request、urls、poll 等）
@@ -79,7 +79,7 @@ Vite 以 `src/index.html` 为唯一入口，生产构建输出到 `build/`：
 项目内通过 Vite alias `@shared` 引用共享模块：
 
 ```js
-import { Button } from '@shared/ui/button';
+import { Button, Input, Field } from '@shared/ui';
 import { createAsyncStoreSlice } from '@shared/lib/storeFactory';
 import { poll } from '@shared/lib/poll';
 ```
@@ -100,13 +100,15 @@ npx shadcn add button
 pnpm format   # 上游产物用双引号 / 2 空格 / 无分号，与本仓库 Prettier 配置不符，必须格式化
 ```
 
-组件会安装到 `/src/shared/ui` 目录下，所有应用都可以引用。
+组件会安装到 `/src/shared/ui/general/` 下，所有应用都可以引用。
 
 两点注意：
 
 - 新组件落地后不跑 `pnpm format`，`pnpm lint` 会因 prettier 规则直接报错。
 - 对**已存在**的组件执行 `add`（如 `button`）会用上游版本覆盖本仓库的定制（尺寸变体、JSDoc 头等），
   改动前先 `git diff` 确认。
+
+`general/` 只是 CLI 的默认落点；新组件不属于通用类时的归类规则与收尾步骤见 `src/shared/ui/AGENTS.md`。
 
 ## AI Agent 配置
 
@@ -126,6 +128,4 @@ pnpm format   # 上游产物用双引号 / 2 空格 / 无分号，与本仓库 P
 
 ## 注意事项
 
-- 不要直接修改 `build/` 目录，它是构建产物。
-- 新增共享组件时统一放到 `/src/shared/ui`，不要在各应用里各自维护。
-- `pnpm install` 可能会提示 esbuild build scripts 被忽略，目前不影响构建；如遇到 esbuild 相关报错，可执行 `pnpm rebuild esbuild`。
+改代码时的强制约束（构建产物、组件分流、Tailwind 工具类、Playwright 产物清理等）见 `AGENTS.md`。

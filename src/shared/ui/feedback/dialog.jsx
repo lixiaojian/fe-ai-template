@@ -9,7 +9,7 @@
 import { Dialog as DialogPrimitive } from '@base-ui/react/dialog';
 import { XIcon } from 'lucide-react';
 import { cn } from 'cn';
-import { Button } from '@shared/ui/button';
+import { Button } from '@shared/ui/general/button';
 
 /**
  * 内容区末元素的底部兜底间距。

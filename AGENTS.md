@@ -1,7 +1,5 @@
 # AGENTS.md
 
-本文件为 Claude Code（claude.ai/code）在本仓库中工作时提供指引。
-
 ## 项目概述
 
 通用前端工程骨架。单入口构建（`src/index.html` → `src/main.jsx`），内部通过路由前缀区分多个应用：
@@ -35,7 +33,9 @@
 
 业务组件在 `components` 下按目录组织：一个组件一个目录，入口为 `index.jsx`，同目录平级放该组件私有的
 `hooks` / 子组件 / `api.js` / `constants.js`；跨组件复用的 hooks 仍放 `/src/shared/hooks`。
-两处组件的 JSDoc 注释规范一致，见 `src/shared/ui/AGENTS.md`。
+
+`shared/ui` 内部按语义分类存放，统一由 `src/shared/ui/index.js` 导出（`import { Button } from '@shared/ui'`）。
+两处组件的归类规则、引用约定与 JSDoc 规范见 `src/shared/ui/AGENTS.md`。
 
 ## 环境变量
 
@@ -55,98 +55,68 @@ ESLint 使用 flat config（`eslint.config.js`），已无 `.eslintrc.cjs` / `.e
 
 未使用变量使用 `_` 前缀可忽略。
 
-### 【重要】React 相关规则：只用 eslint-plugin-react-hooks
+### 【重要】React 检查：只用 eslint-plugin-react-hooks
 
-**不要引入 `eslint-plugin-react`。** 它已停止维护（7.37.5 为最后一版，2025-04），peer 范围不含
+**不要引入 `eslint-plugin-react`**：已停止维护（7.37.5 为最后一版，2025-04），peer 范围不含
 ESLint 10，启用即抛 `TypeError: contextOrFilename.getFilename is not a function`。
+本模板的 React 检查由 `eslint-plugin-react-hooks` v7（含 14 条 React Compiler 规则）与 ESLint 10
+原生承担，配置见 `eslint.config.js`。
 
-本模板的 React 检查由两处承担：
-
-1. `eslint-plugin-react-hooks` v7 —— 16 条规则：2 条基础（`rules-of-hooks`、`exhaustive-deps`）
-   加 14 条 React Compiler 规则（`set-state-in-effect`、`purity`、`static-components`、`immutability`
-   等，其中 12 条 error 级），是当前 React 检查的主力；
-2. ESLint 10 原生 —— 已能跟踪 JSX 引用，`no-unused-vars` / `no-undef` 无需插件辅助。
-
-由此带来的两条约定：
+由此留下两条**工具不再覆盖**的约定：
 
 - **仅在运行时用到 `React.xxx` 时才 `import * as React from 'react'`。** 构建走 automatic JSX
   runtime（产物是 `jsx`/`jsxs` 调用，不经 `React.createElement`），纯 JSX 文件里的 React 命名空间
   import 是死代码。JSDoc 中的 `{React.ReactNode}` 是纯文档（`tsconfig.json` 为 `checkJs: false`
   且未装 typescript），不受此约束。
-- **列表渲染的 `key` 不再有 lint 检查**（原 `react/jsx-key` 已随之移除），靠 code review 把关。
-
-若日后需要恢复 `jsx-key` 一类检查，可选：`@eslint-react/eslint-plugin`（活跃维护，但强制引入
-`typescript` 作为 peer，且无 `no-unknown-property` / `jsx-no-target-blank` 对应规则），或自写
-本地规则。
+- **列表渲染的 `key` 没有 lint 检查**（原 `react/jsx-key` 已随之移除），靠 code review 把关。
+  不要为了补这条检查去引入 `eslint-plugin-react`。
 
 ### 【重要】禁止同属性工具类重复（IDE 冲突警告）
 
-同一元素上禁止同时书写作用于**同一 CSS 属性**的两个工具类（IDE 会报
-`'xxx' applies the same CSS properties as 'yyy'` 冲突警告；运行时 `cn` 会剥离先写的冲突类，
-只有最后一个生效，被剥离/被覆盖的一个是死代码）：
+同一元素上禁止同时书写作用于**同一 CSS 属性**的两个工具类。IDE 会报
+`'xxx' applies the same CSS properties as 'yyy'`，运行时 `cn` 会剥离先写的冲突类，
+只有最后一个生效，被剥离的那个是死代码。
 
-- 典型案例：`text-(--text)` 与 `placeholder:text-(--text-3)` 连用。占位符颜色**不要**在业务代码里用工具类指定：
-    - shared `Input` / `Textarea` 基础类已内置 `placeholder:text-muted-foreground`；
-    - 确需自定义占位符颜色时写 CSS 规则，不与 text 颜色类同写。
-- 同理避免 `text-(--x) hover:text-(--x)` 这类与基础值相同的同色变体冗余。
+典型案例：`text-(--text)` 与 `placeholder:text-(--text-3)` 连用。占位符颜色**不要**在业务代码里
+用工具类指定——shared `Input` / `Textarea` 基础类已内置 `placeholder:text-muted-foreground`；
+确需自定义时写 CSS 规则，不与 text 颜色类同写。
 
-### 【重要】已登记进 @theme 的 token 必须用短工具类，不写 `(--x)` 简写
+另一种冗余是 `text-(--x) hover:text-(--x)` 这类与基础值相同的同色变体。
+
+### 【重要】已登记进 @theme 的 token 用短工具类，不写 `(--x)` 简写
 
 `src/shared/styles/index.css` 的 `@theme inline` 里登记了 `--color-*`，Tailwind 会据此生成短工具类。
-此时再写 `text-(--brand)` 这类 `var()` 简写，IDE 会报
-`The class 'text-(--brand)' can be written as 'text-brand'`，且两种写法等价，属于冗余：
+此时写 `text-(--brand)` 这类 `var()` 简写，IDE 会报
+`The class 'text-(--brand)' can be written as 'text-brand'`，两种写法等价，属于冗余。
 
-| 不要写                                                                    | 要写                                                          |
-| ------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| `text-(--brand)` / `text-(--brand-hi)` / `text-(--brand-text)`            | `text-brand` / `text-brand-hi` / `text-brand-text`            |
-| `text-(--danger)` / `text-(--danger-text)` / `text-(--danger-text-light)` | `text-danger` / `text-danger-text` / `text-danger-text-light` |
-| `text-(--success)` / `text-(--warning)`                                   | `text-success` / `text-warning`                               |
-| `border-(--line)` / `border-(--danger)`                                   | `border-line` / `border-danger`                               |
-| `bg-(--line)` / `bg-(--line-2)` / `bg-(--brand-hi)`                       | `bg-line` / `bg-line-2` / `bg-brand-hi`                       |
-| `ring-(--brand-hi)`                                                       | `ring-brand-hi`                                               |
-| `bg-(--bg-card)` / `bg-(--bg-card-hover)` / `bg-(--bg-soft)`              | `bg-card` / `bg-card-hover` / `bg-soft`                       |
+**判断方法**：变量名去掉 `--` 后，能在 `@theme inline` 中找到 `--color-<该名字>`，就用短工具类
+（`text-(--brand)` → `text-brand`，`bg-(--line)` → `bg-line`）。
 
-最后一行是**别名**：`--bg-card` / `--bg-card-hover` / `--bg-soft` 与 `--card` / `--card-hover` / `--soft`
+注意**别名**：`--bg-card` / `--bg-card-hover` / `--bg-soft` 与 `--card` / `--card-hover` / `--soft`
 取值完全相同（见 tokens.css），后者才是登记名。
-
-**判断方法**：变量名去掉 `--` 后，能在 `@theme inline` 中找到 `--color-<该名字>`，就用短工具类。
 
 **仍用 `(--x)` 写法的两类**（无短类名可用，IDE 也不会警告）：
 
 - 未登记进 `@theme` 的业务 token：`--text` / `--text-2` / `--text-3` → `text-(--text-3)`；
 - 组件内部或第三方注入的变量：`--card-spacing`、`--anchor-width`、`--available-height`、`--transform-origin`。
 
-短工具类经 `--color-*` → `:root` 上的 token 解析，**Portal 弹层内同样可用**。
-
 ### 【重要】直接子元素变体用 `*:` 前缀，不写 `[&>[attr]]`
 
-子选择器是**单个属性选择器**时，`[&>[data-slot=x]]:h-full` 与 `*:data-[slot=x]:h-full`
-完全等价，但前者 IDE 会报
-`The class '[&>[data-slot=x]]:h-full' can be written as '*:data-[slot=x]:h-full'`：
+子选择器是**单个属性选择器**时，`[&>[data-slot=x]]:h-full` 与 `*:data-[slot=x]:h-full` 完全等价，
+后者才是 Tailwind v4 的写法。ESLint 已按此拦截（`eslint.config.js` 的 `no-restricted-syntax`），
+写完跑 `pnpm lint` 即会提示。
 
-| 不要写                                    | 要写                                    |
-| ----------------------------------------- | --------------------------------------- |
-| `[&>[data-slot=carousel-content]]:h-full` | `*:data-[slot=carousel-content]:h-full` |
-| `[&>[data-state=open]]:opacity-100`       | `*:data-[state=open]:opacity-100`       |
-| `[&>*]:w-full`                            | `*:w-full`                              |
-
-**仍用 `[&>…]` 的三类**（没有 `*:` 等价写法，IDE 也不会警告）：
+`[&>…]` 仍然合法的三类（没有 `*:` 等价写法，规则也不拦）：
 
 - 元素选择器：`[&>svg]:h-3.5`、`[&>a]:underline`、`[&>tr]:last:border-b-0`；
 - 类选择器：`[&>.sr-only]:w-auto`；
 - 选择器列表：`[&>[role=checkbox],[role=radio]]:mt-px`（`*:` 只能接单个选择器，逗号会把整条规则拆坏）。
 
-ESLint 已按此规则拦截（`eslint.config.js` 的 `no-restricted-syntax`），只匹配上述第一类。
-
 ### 【重要】Portal 弹层内可直接使用 token
 
 Dialog / Popover 等弹层内容会 Portal 到 `body`。本模板的 token（`--text`、`--text-2`、`--text-3`、
-`--line`、`--brand` 等）**全部挂在 `:root`**（见 `src/shared/styles/tokens.css`），
-不在任何 zone 类下，因此 Portal 弹层内**同样可解析**，短工具类（`text-brand`、`bg-card` 等）
-与 `(--x)` 写法都可直接用，无需改写为字面值。
-
-日后若引入 zone 级作用域（把 token 从 `:root` 挪到某个容器类下），弹层内才会失效——
-届时把该容器类一并加到弹层节点上，或改用 html 级的语义 token（`muted-foreground`、`ring-ring`）。
+`--line`、`--brand` 等）**全部挂在 `:root`**（见 `src/shared/styles/tokens.css`），不在任何 zone 类下，
+因此弹层内**同样可解析**，短工具类与 `(--x)` 写法都可直接用，无需改写为字面值。
 
 ## 【重要】Playwright 验证产物用后即清
 
@@ -167,7 +137,6 @@ rm -f .playwright-cli/*.png .playwright-cli/*.yml .playwright-cli/*.log
 ## 【重要】注意事项
 
 - 不要直接修改 `build/`，它是构建产物。
-- 新增共享组件按「组件创建规范」分流：纯展示放 `/src/shared/ui`，含业务逻辑放 `/src/shared/components`；不要在各应用里各自维护。
 - 若新增 `docs/` 目录存放文档，需确认 `src/shared/styles/index.css` 的 `@source not "../../../docs"` 仍指向它，避免文档正文里的工具类被 Tailwind 提取成死规则。
 - `pnpm install` 可能提示某些依赖的 build scripts 被忽略（pnpm 默认阻止依赖执行安装脚本），
   一般不影响构建。Vite 8 已改用 rolldown，**esbuild 不再是依赖**，旧文档里的

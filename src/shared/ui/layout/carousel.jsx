@@ -11,7 +11,7 @@ import { cn } from 'cn';
 import useEmblaCarousel from 'embla-carousel-react';
 import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react';
 
-import { Button } from '@shared/ui/button';
+import { Button } from '@shared/ui/general/button';
 
 const CarouselContext = React.createContext(null);
 

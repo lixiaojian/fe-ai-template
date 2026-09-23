@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { Toaster } from '@shared/ui/sonner';
+import { Toaster } from '@shared/ui';
 import App1 from './app1/pages/index.jsx';
 import App2 from './app2/pages/index.jsx';
 

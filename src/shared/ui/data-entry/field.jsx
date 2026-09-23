@@ -10,8 +10,8 @@
 import { useMemo } from 'react';
 import { cva } from 'class-variance-authority';
 import { cn } from 'cn';
-import { Label } from '@shared/ui/label';
-import { Separator } from '@shared/ui/separator';
+import { Label } from '@shared/ui/data-entry/label';
+import { Separator } from '@shared/ui/general/separator';
 
 /**
  * FieldSet 组件，原生 fieldset 容器，用于将一组字段归组。

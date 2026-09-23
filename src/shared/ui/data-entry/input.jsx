@@ -14,7 +14,7 @@ import { cn } from 'cn';
  * @param {Object} props - 组件属性。
  * @param {string} [props.className] - 额外的样式类名。
  * @param {string} [props.type='text'] - input 类型（如 text、password、search 等）。
- * @param {boolean} [props['aria-invalid']] - 是否处于校验错误态。
+ * @param {boolean} [props.aria-invalid] - 是否处于校验错误态。
  * @param {React.InputHTMLAttributes<HTMLInputElement>} props... - 其他原生 input 属性与 Base UI Input 属性。
  * @param {React.Ref<HTMLInputElement>} ref - 转发到底层 input 元素的 ref。
  * @returns {JSX.Element}

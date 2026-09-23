@@ -9,9 +9,9 @@ description: 本项目表单验证规范。创建、修改 React 表单（React 
 
 ## 相关共享组件
 
-- `/src/shared/ui/field.jsx`：表单字段组件族，包括 `Field`、`FieldLabel`、`FieldError`、`FieldDescription`、`FieldGroup` 等。
-- `/src/shared/ui/label.jsx`：标签组件。
-- `/src/shared/ui/dialog.jsx`：弹层组件，用于表单弹窗场景。
+- `/src/shared/ui/data-entry/field.jsx`：表单字段组件族，包括 `Field`、`FieldLabel`、`FieldError`、`FieldDescription`、`FieldGroup` 等。
+- `/src/shared/ui/data-entry/label.jsx`：标签组件。
+- `/src/shared/ui/feedback/dialog.jsx`：弹层组件，用于表单弹窗场景。
 
 ## 推荐模式
 
@@ -21,9 +21,7 @@ base-nova 不推荐使用经典 `Form` / `FormField` 包装组件，而是直接
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Input } from '@shared/ui/input';
-import { Button } from '@shared/ui/button';
-import { Field, FieldLabel, FieldError } from '@shared/ui/field';
+import { Input, Button, Field, FieldLabel, FieldError } from '@shared/ui';
 
 const schema = z.object({
     name: z.string().min(1, '名称不能为空').max(50, '名称不能超过 50 个字符'),
