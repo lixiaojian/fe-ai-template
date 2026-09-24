@@ -1,7 +1,7 @@
 /**
  * @file Form 组件示例页
  * @description 覆盖 layout / labelCol / rules 各类型 / 控件适配 / dependencies /
- * Form.List / zodResolver 与 rules 共存 / noStyle / scrollToFirstError 的用法演示。
+ * Form.List（含列表级 rules）/ zodResolver 与 rules 共存 / noStyle / scrollToFirstError 的用法演示。
  * 既是可运行文档，也是 Playwright 验证的靶子。
  */
 
@@ -43,6 +43,15 @@ const ruleShowcase = [
 ];
 
 /**
+ * 角色选项。同时作为 Select 的 items：SelectValue 需要它才能把 value 显示成文案，
+ * 否则触发器上显示的是原始值。
+ */
+const ROLE_ITEMS = [
+    { value: 'admin', label: '管理员' },
+    { value: 'user', label: '普通用户' },
+];
+
+/**
  * Form 示例页。
  * @returns {JSX.Element}
  */
@@ -77,6 +86,26 @@ export default function FormDemo() {
                     <Input placeholder="表单级 zod 与字段 rules 同时生效" />
                 </Form.Item>
 
+                {/* dependencies：email 变化时自动重校验本字段，
+                    因此改完邮箱后「确认邮箱」的旧错误会立即更新。
+                    validator 用 (value, allValues) 签名取值，不用 antd 的
+                    函数式 rules（本实现不支持，会被静默忽略）。 */}
+                <Form.Item
+                    name="emailConfirm"
+                    label="确认邮箱"
+                    dependencies={['email']}
+                    rules={[
+                        {
+                            validator: (value, allValues) =>
+                                !value || value === allValues.email
+                                    ? undefined
+                                    : '两次输入的邮箱不一致',
+                        },
+                    ]}
+                >
+                    <Input data-testid="email-confirm" />
+                </Form.Item>
+
                 <Form.Item name="nickname" label="昵称" rules={ruleShowcase}>
                     <Input />
                 </Form.Item>
@@ -100,13 +129,16 @@ export default function FormDemo() {
                     label="角色"
                     rules={[{ required: true, message: '请选择角色' }]}
                 >
-                    <Select>
+                    <Select items={ROLE_ITEMS}>
                         <SelectTrigger>
                             <SelectValue placeholder="请选择" />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="admin">管理员</SelectItem>
-                            <SelectItem value="user">普通用户</SelectItem>
+                            {ROLE_ITEMS.map((option) => (
+                                <SelectItem key={option.value} value={option.value}>
+                                    {option.label}
+                                </SelectItem>
+                            ))}
                         </SelectContent>
                     </Select>
                 </Form.Item>
@@ -152,9 +184,12 @@ export default function FormDemo() {
                     </Form.Item>
                 </Form.Item>
 
-                {/* Form.List：动态增删 */}
+                {/* Form.List：动态增删，列表级 rules 校验整个数组 */}
                 <Form.Item label="标签列表">
-                    <Form.List name="items">
+                    <Form.List
+                        name="items"
+                        rules={[{ required: true, message: '至少保留一个标签' }]}
+                    >
                         {(fields, operation, meta) => (
                             <div className="flex w-full flex-col gap-2">
                                 {fields.map((item, index) => (

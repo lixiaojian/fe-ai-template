@@ -11,7 +11,7 @@
 | `navigation/`   | 导航：页面/视图之间的切换与位置指示    | `breadcrumb` / `dropdown-menu` / `tabs`                                                                             |
 | `data-entry/`   | 数据录入：接收用户输入                 | `attachment` / `checkbox` / `field` / `form` / `input` / `label` / `radio-group` / `select` / `switch` / `textarea` |
 | `data-display/` | 数据展示：只读呈现数据或占位           | `data-table` / `empty` / `progress` / `skeleton` / `table`                                                          |
-| `feedback/`     | 反馈：告知用户状态、结果或补充说明     | `dialog` / `error-alert` / `sonner` / `tooltip`                                                                     |
+| `feedback/`     | 反馈：告知用户状态、结果或补充说明     | `dialog` / `drawer` / `error-alert` / `sonner` / `tooltip`                                                          |
 
 归类有歧义时的判定依据：
 

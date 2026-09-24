@@ -50,12 +50,14 @@ function getFieldBinding(elementType) {
  * @param {Function} props.onChange - 值变更回调（适配后的签名）。
  * @param {boolean} props.invalid - 是否处于校验错误态。
  * @param {string} [props.id] - 控件 id。
+ * @param {boolean} [props.disabled] - 是否禁用控件；仅在其为真值时注入，
+ *   避免把控件自身写的 disabled 覆盖成 false。
  * @param {string} [props.valuePropName] - 显式指定取值属性，优先于适配表。
  * @param {string} [props.trigger] - 显式指定变更属性，优先于适配表。
  * @returns {React.ReactNode} 注入后的子元素；子元素不合法时原样返回。
  */
 function injectFieldProps(child, props) {
-    const { value, onChange, invalid, id, valuePropName, trigger } = props;
+    const { value, onChange, invalid, id, disabled, valuePropName, trigger } = props;
 
     if (Array.isArray(child)) {
         console.warn('[Form] Form.Item 只能有一个子元素，已取第一个。');
@@ -78,6 +80,10 @@ function injectFieldProps(child, props) {
     const normalizedValue = valueProp === 'checked' ? Boolean(value) : (value ?? '');
 
     const rootProps = { [valueProp]: normalizedValue, [triggerProp]: onChange };
+
+    if (disabled) {
+        rootProps.disabled = true;
+    }
 
     // 默认落点：aria-invalid 与 id 直接给根组件
     if (!binding.forwardTo) {

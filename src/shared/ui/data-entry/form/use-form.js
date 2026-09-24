@@ -91,6 +91,21 @@ function compileRegistry(registry) {
 }
 
 /**
+ * 判断某个注册项是否落在本次校验范围内。
+ *
+ * RHF 传来的 names 是**已挂载字段**的路径集合。字段数组（Form.List）本身不会被 register，
+ * 因此列表级规则的注册名（如 items）不在 names 里，只有 items.0.value 这类子路径在。
+ * 这里放宽为「等于自身或自身是某个待校验字段的祖先」，列表规则才能参与提交校验。
+ *
+ * @param {string} entryName - 注册表里的字段路径。
+ * @param {string[]} names - 本次要校验的字段路径。
+ * @returns {boolean} 是否需要校验该注册项。
+ */
+function isNameRequested(entryName, names) {
+    return names.some((name) => name === entryName || name.startsWith(`${entryName}.`));
+}
+
+/**
  * 合成 resolver：先跑用户 resolver，再补跑字段级 rules，合并成一个 errors 对象。
  * @param {Function|null} userResolver - 用户传入的 resolver（如 zodResolver）。
  * @param {Map<string, {rules: Array, label?: string}>} registry - 字段 rules 注册表。
@@ -111,9 +126,10 @@ function composeResolver(userResolver, registry) {
 
         const compiled = compileRegistry(registry);
         const names = options?.names;
+        const scoped = Array.isArray(names) && names.length > 0;
 
         for (const [name, validators] of compiled) {
-            if (Array.isArray(names) && names.length > 0 && !names.includes(name)) {
+            if (scoped && !isNameRequested(name, names)) {
                 continue;
             }
 
@@ -208,7 +224,8 @@ function createFormInstance() {
             const errors = requireRhf().control._formState.errors;
             const names = nameList ?? Object.keys(requireRhf().getValues());
             return names.map((name) => ({
-                name,
+                // 与 antd 一致：name 是路径数组而非点号字符串
+                name: String(name).split('.'),
                 errors: toErrorMessages(getValueByPath(errors, name)),
             }));
         },
@@ -221,6 +238,15 @@ function createFormInstance() {
             const touched = names.map((name) => Boolean(getValueByPath(touchedFields, name)));
             return allTouched ? touched.every(Boolean) : touched.some(Boolean);
         },
+        /**
+         * 字段是否正在校验中。
+         *
+         * 两个前提，缺一即**恒为 false 且不报错**：
+         * 1. RHF 仅在 `validatingFields` 被订阅时才写入该状态。订阅由 Form.Item 读取
+         *    `fieldState.isValidating` 顺带建立，若该处读取被移除，本方法会静默退化。
+         * 2. RHF 只对 `AsyncFunction` 形态的校验器置位，同步规则再慢也不会进入
+         *    `validatingFields`。
+         */
         isFieldValidating: (name) =>
             Boolean(getValueByPath(requireRhf().control._formState.validatingFields, name)),
 
@@ -289,6 +315,13 @@ function createFormInstance() {
             throw error;
         },
 
+        /**
+         * 提交表单，等价于 antd 的 `form.submit()`。
+         *
+         * 无参数、不返回 Promise，结果经 `onFinish` / `onFinishFailed` 回调给出。
+         * 实现是触发表单 DOM 的原生提交，因此提交函数由 `<Form>` 在渲染期通过
+         * `_bindSubmit` 注入；实例尚未绑定到 `<Form>` 时是空操作。
+         */
         submit: () => submitHandler?.(),
 
         scrollToField: (name, options = {}) => {
@@ -399,14 +432,11 @@ function useWatch(namePathOrSelector, formOrOptions) {
     const isSelector = typeof namePathOrSelector === 'function';
     const name = isSelector ? undefined : namePathOrSelector;
 
-    const value = useRhfWatch({
+    return useRhfWatch({
         control,
-        name,
-        // selector 形式监听整表，再在 compute 里取子集
+        name, // selector 形式监听整表，再在 compute 里取子集
         compute: isSelector ? (values) => namePathOrSelector(values) : undefined,
     });
-
-    return value;
 }
 
 export {
@@ -416,6 +446,7 @@ export {
     setValueByPath,
     toErrorMessages,
     normalizeValidateTrigger,
+    isNameRequested,
     useBoundRhf,
     useForm,
     useFormInstance,

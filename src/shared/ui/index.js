@@ -48,6 +48,7 @@ export * from './data-display/table';
 
 // ── 反馈 ──
 export * from './feedback/dialog';
+export * from './feedback/drawer';
 export * from './feedback/error-alert';
 export * from './feedback/sonner';
 export * from './feedback/tooltip';

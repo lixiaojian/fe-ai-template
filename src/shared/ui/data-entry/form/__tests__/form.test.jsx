@@ -9,7 +9,11 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { createElement as h } from 'react';
 import { Form } from '@shared/ui/data-entry/form';
 import { Input } from '@shared/ui/data-entry/input';
-import { isUserEvent, renderRequiredMark } from '@shared/ui/data-entry/form/index.jsx';
+import {
+    firstErrorPath,
+    isUserEvent,
+    renderRequiredMark,
+} from '@shared/ui/data-entry/form/index.jsx';
 
 test('isUserEvent：带 type 的 watch 回调视为用户交互', () => {
     assert.equal(isUserEvent({ type: 'change', name: 'a' }), true);
@@ -20,6 +24,18 @@ test('isUserEvent：无 type 的回调（setValue 触发）不算用户交互', 
     // 关键回归点：antd 的 setFieldsValue 不触发 onValuesChange
     assert.equal(isUserEvent({ name: 'a' }), false);
     assert.equal(isUserEvent(undefined), false);
+});
+
+test('firstErrorPath 下钻到第一个叶子字段的完整路径', () => {
+    // 关键回归点：列表字段的顶层键是 items，DOM 上的 data-field-name 是 items.0.value
+    assert.equal(
+        firstErrorPath({ items: [{ value: { type: 'validate', message: '不能为空' } }] }),
+        'items.0.value'
+    );
+    assert.equal(firstErrorPath({ a: { type: 'validate', message: '错了' } }), 'a');
+    assert.equal(firstErrorPath({ a: { b: { type: 'validate', message: '错了' } } }), 'a.b');
+    assert.equal(firstErrorPath({}), undefined);
+    assert.equal(firstErrorPath(undefined), undefined);
 });
 
 test('requiredMark 为 true 时显示必填星号', () => {

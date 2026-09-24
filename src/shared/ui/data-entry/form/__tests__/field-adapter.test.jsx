@@ -150,6 +150,39 @@ test('valuePropName / trigger 显式覆盖适配表', () => {
     assert.match(html, /data-x="v"/);
 });
 
+test('disabled 为真值时注入 disabled', () => {
+    const html = render(h(Input, null), {
+        value: '',
+        onChange: () => {},
+        invalid: false,
+        id: 'f_d1',
+        disabled: true,
+    });
+    assert.match(html, / disabled=""/);
+});
+
+test('disabled 为假值时不下发 disabled，控件自身的 disabled 不被覆盖', () => {
+    // 关键回归点：若恒注入 disabled={false}，会覆盖子控件上写的 disabled
+    const html = render(h(Input, { disabled: true }), {
+        value: '',
+        onChange: () => {},
+        invalid: false,
+        id: 'f_d2',
+        disabled: false,
+    });
+    assert.match(html, / disabled=""/);
+
+    // 类名里有 disabled: 变体，故匹配 disabled 属性本身
+    const enabled = render(h(Input, null), {
+        value: '',
+        onChange: () => {},
+        invalid: false,
+        id: 'f_d3',
+        disabled: false,
+    });
+    assert.equal(/ disabled=""/.test(enabled), false);
+});
+
 test('子元素不是合法元素时原样返回并告警', () => {
     const warnings = [];
     const original = console.warn;

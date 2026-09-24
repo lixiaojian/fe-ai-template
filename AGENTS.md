@@ -4,7 +4,7 @@
 
 通用前端工程骨架。单入口构建（`src/index.html` → `src/main.jsx`），内部通过路由前缀区分多个应用：
 
-- `/src/app1`：应用一。
+- `/src/app1`：应用一。目前是一个完整的用户管理示例（列表 / 新增弹窗 / 详情抽屉）与 Form 组件示例页。
 - `/src/app2`：应用二。
 - `/src/shared`：两个应用共享的组件、样式、状态与工具。
 
@@ -14,6 +14,13 @@
 
 项目使用 **React Hook Form + Zod** 做表单验证，shadcn/ui base-nova 提供 `Field` 组件族展示字段与错误信息。
 推荐模式、共享组件与约定见 `.agents/skills/form-validation/SKILL.md`（写表单时自动加载）。
+
+两种写法并存，按场景选择：
+
+- **命令式**：`useForm` + `Controller` + `Field` 组件族，适合字段少、需要完全控制渲染的场景；
+- **声明式**：`@shared/ui` 的 `Form` / `Form.Item` / `Form.List`（API 形态对齐 Ant Design，底层同样是 RHF），
+  适合字段较多、需要栅格布局与统一错误展示的场景。`Form` 可接 `resolver={zodResolver(schema)}`，
+  也可用字段级 `rules`，两者可同时生效。示例见 `src/app1/pages/form-demo.jsx`。
 
 ## 【重要】组件创建规范
 

@@ -85,19 +85,48 @@ function resolveFieldName(name, prefix) {
 }
 
 /**
- * 必填星号。
- * @param {Object} props - 组件属性。
- * @param {boolean} props.required - 是否必填。
- * @returns {JSX.Element|null}
+ * 计算必填标记的渲染结果（对应 antd 的 requiredMark 配置）。
+ * @param {boolean|'optional'|Function} requiredMark - antd 的 requiredMark 配置。
+ * @param {Object} params - 上下文。
+ * @param {boolean} params.required - 该字段是否必填。
+ * @param {string} [params.label] - 字段标签文本。
+ * @returns {React.ReactNode|null} 标记内容；不显示时为 null。
  */
-function RequiredMark({ required }) {
-    if (!required) {
+function renderRequiredMark(requiredMark, { required, label }) {
+    if (typeof requiredMark === 'function') {
+        return requiredMark(label, { required }) ?? null;
+    }
+    if (requiredMark === false) {
         return null;
     }
-    return (
+    if (requiredMark === 'optional') {
+        return required ? '*' : '(可选)';
+    }
+    return required ? '*' : null;
+}
+
+/**
+ * 必填标记。requiredMark 为 true / 'optional' / 函数时分别产出星号、可选提示或自定义内容。
+ * @param {Object} props - 组件属性。
+ * @param {boolean} props.required - 是否必填。
+ * @param {boolean|'optional'|Function} [props.requiredMark] - Form 级的 requiredMark 配置。
+ * @param {string} [props.label] - 字段标签文本，供函数形式的 requiredMark 使用。
+ * @returns {JSX.Element|null}
+ */
+function RequiredMark({ required, requiredMark, label }) {
+    const mark = renderRequiredMark(requiredMark, { required, label });
+
+    if (mark === null || mark === undefined || mark === '') {
+        return null;
+    }
+
+    // 只有星号是装饰性标记；「(可选)」这类文案属于标签内容，读屏时不应被隐藏
+    return mark === '*' ? (
         <span aria-hidden="true" className="mr-1 text-danger-text">
             *
         </span>
+    ) : (
+        <span className="mr-1">{mark}</span>
     );
 }
 
@@ -228,7 +257,11 @@ function PlainItem(props) {
     const labelNode =
         label === undefined ? null : (
             <Label data-slot="form-item-label" className="leading-snug">
-                <RequiredMark required={Boolean(required)} />
+                <RequiredMark
+                    required={Boolean(required)}
+                    requiredMark={formContext.requiredMark}
+                    label={label}
+                />
                 {label}
                 {formContext.colon ? ':' : ''}
             </Label>
@@ -315,6 +348,17 @@ function FieldItem(props) {
     const { prefix } = useListContext();
     const fieldName = resolveFieldName(name, prefix);
     const control = formContext.form._rhf.control;
+    // 本项实际生效的布局：Item 级覆盖 Form 级
+    const effectiveLayout = layout ?? formContext.layout;
+    // 控件 id：Form 的 name 作为前缀（antd 语义），显式 htmlFor 优先级最高
+    const fieldId = htmlFor ?? (formContext.name ? `${formContext.name}_${fieldName}` : fieldName);
+
+    const { field, fieldState } = useController({
+        name: fieldName,
+        control,
+        defaultValue: initialValue,
+        rules: normalize ? { setValueAs: normalize } : undefined,
+    });
 
     // 本字段的校验触发时机：Item 级优先于 Form 级。校验全部由这里手动触发
     // （RHF 的 mode 已设为 onSubmit），因此字段级配置才真正生效。
@@ -366,13 +410,6 @@ function FieldItem(props) {
             formContext.form._mountedFields.delete(fieldName);
         };
     }, [formContext.form, fieldName]);
-
-    const { field, fieldState } = useController({
-        name: fieldName,
-        control,
-        defaultValue: initialValue,
-        rules: normalize ? { setValueAs: normalize } : undefined,
-    });
 
     // dependencies：自己订阅依赖字段，变化时触发本字段重校验。
     // 不用 RHF 的 register({ deps })——实测其重校验不可靠。
@@ -442,7 +479,8 @@ function FieldItem(props) {
             }
         },
         invalid: fieldState.invalid,
-        id: htmlFor ?? fieldName,
+        id: fieldId,
+        disabled: formContext.disabled,
         valuePropName,
         trigger,
     });
@@ -480,7 +518,7 @@ function FieldItem(props) {
         return (
             <ItemContext.Provider value={contextValue}>
                 <ItemShell
-                    layout={layout ?? formContext.layout}
+                    layout={effectiveLayout}
                     labelNode={null}
                     controlNode={<div data-slot="form-item-control">{injected}</div>}
                     className={className}
@@ -499,16 +537,20 @@ function FieldItem(props) {
     const labelNode =
         label === undefined ? null : (
             <Label
-                htmlFor={htmlFor ?? fieldName}
+                htmlFor={fieldId}
                 data-slot="form-item-label"
                 className={cn(
                     'leading-snug',
-                    formContext.layout === 'horizontal' &&
+                    effectiveLayout === 'horizontal' &&
                         formContext.labelAlign === 'right' &&
                         'justify-end'
                 )}
             >
-                <RequiredMark required={Boolean(isRequired)} />
+                <RequiredMark
+                    required={Boolean(isRequired)}
+                    requiredMark={formContext.requiredMark}
+                    label={label}
+                />
                 {label}
                 {formContext.colon ? ':' : ''}
             </Label>
@@ -534,7 +576,7 @@ function FieldItem(props) {
     return (
         <ItemContext.Provider value={contextValue}>
             <ItemShell
-                layout={layout ?? formContext.layout}
+                layout={effectiveLayout}
                 labelNode={labelNode}
                 controlNode={controlNode}
                 className={className}
@@ -596,4 +638,4 @@ function FormItem(props) {
     return <FieldItem {...props} />;
 }
 
-export { FormItem, useItemStatus, resolveStatus };
+export { FormItem, useItemStatus, resolveStatus, renderRequiredMark };

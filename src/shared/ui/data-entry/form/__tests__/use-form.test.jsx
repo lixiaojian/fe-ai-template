@@ -12,6 +12,7 @@ import {
     composeResolver,
     createFormInstance,
     getValueByPath,
+    isNameRequested,
     normalizeValidateTrigger,
 } from '@shared/ui/data-entry/form/use-form';
 
@@ -139,6 +140,48 @@ test('合成 resolver：数组路径上的规则错误落到嵌套结构', async
     });
     // errors 是按路径嵌套的对象，读取时同样走路径
     assert.equal(getValueByPath(result.errors, 'list.0.v').message, '第 0 项必填');
+});
+
+test('isNameRequested：精确命中与祖先命中都算在范围内', () => {
+    // 字段数组本身不会被 register，names 里只有它的子路径
+    assert.equal(isNameRequested('items', ['items.0.value']), true);
+    assert.equal(isNameRequested('items', ['items']), true);
+    assert.equal(isNameRequested('a', ['ab']), false);
+    assert.equal(isNameRequested('items.0.value', ['items.0.value']), true);
+    assert.equal(isNameRequested('items.0.value', ['items']), false);
+});
+
+test('合成 resolver：列表级规则在只校验子字段时也会执行', async () => {
+    // 关键回归点：RHF 传来的 names 只有 items.0.value，列表规则注册名 items 不在其中
+    const registry = makeRegistry({
+        items: { rules: [{ required: true, message: '至少一项' }], label: 'items' },
+        'items.0.value': { rules: [{ required: true, message: '不能为空' }], label: 'V' },
+    });
+    const result = await composeResolver(null, registry)({ items: [{ value: 'x' }] }, undefined, {
+        names: ['items.0.value'],
+    });
+    assert.equal(getValueByPath(result.errors, 'items.0.value'), undefined);
+});
+
+test('合成 resolver：列表为空时列表级 required 报错', async () => {
+    const registry = makeRegistry({
+        items: { rules: [{ required: true, message: '至少一项' }], label: 'items' },
+    });
+    const result = await composeResolver(null, registry)({ items: [] }, undefined, {
+        names: ['items.0.value'],
+    });
+    assert.equal(getValueByPath(result.errors, 'items').message, '至少一项');
+});
+
+test('FormInstance：getFieldsError 的 name 是路径数组', async () => {
+    const control = makeControl({ defaultValues: { a: '' }, criteriaMode: 'all' });
+    mount(control, 'a');
+    const instance = bindFormInstance(control, ['a']);
+
+    control.register('a', { validate: { r: () => '错了' } });
+    await instance.validateFields(['a']).catch(() => {});
+
+    assert.deepEqual(instance.getFieldsError(['a']), [{ name: ['a'], errors: ['错了'] }]);
 });
 
 test('FormInstance：读写值与错误', async () => {

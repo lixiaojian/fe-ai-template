@@ -23,7 +23,7 @@ import {
     useFormInstance,
     useWatch,
 } from '@shared/ui/data-entry/form/use-form';
-import { FormItem, useItemStatus } from '@shared/ui/data-entry/form/form-item';
+import { FormItem, renderRequiredMark, useItemStatus } from '@shared/ui/data-entry/form/form-item';
 import { FormList, FormErrorList } from '@shared/ui/data-entry/form/form-list';
 
 /**
@@ -37,24 +37,31 @@ function isUserEvent(info) {
 }
 
 /**
- * 计算必填标记的渲染结果。
- * @param {boolean|'optional'|Function} requiredMark - antd 的 requiredMark 配置。
- * @param {Object} params - 上下文。
- * @param {boolean} params.required - 该字段是否必填。
- * @param {string} [params.label] - 字段标签文本。
- * @returns {string|null} 标记文本；不显示时为 null。
+ * 取错误对象里第一个叶子字段的路径。
+ *
+ * RHF 的 errors 按字段路径嵌套，Object.keys 拿到的是顶层键：Form.List 的字段第一层
+ * 只有列表名（items），而 DOM 上的 data-field-name 是完整路径（items.0.value），
+ * 直接用顶层键会定位不到元素。这里下钻到第一个带 message / type 的叶子。
+ *
+ * @param {Object} errors - RHF 的 errors 对象。
+ * @returns {string|undefined} 点号路径；无错误时返回 undefined。
  */
-function renderRequiredMark(requiredMark, { required, label }) {
-    if (typeof requiredMark === 'function') {
-        return requiredMark(label, { required }) ?? null;
-    }
-    if (requiredMark === false) {
-        return null;
-    }
-    if (requiredMark === 'optional') {
-        return required ? '*' : '(可选)';
-    }
-    return required ? '*' : null;
+function firstErrorPath(errors) {
+    const walk = (node, prefix) => {
+        for (const [key, child] of Object.entries(node ?? {})) {
+            const path = prefix ? `${prefix}.${key}` : key;
+            if (child && (child.message || child.type)) {
+                return path;
+            }
+            const nested = walk(child, path);
+            if (nested) {
+                return nested;
+            }
+        }
+        return undefined;
+    };
+
+    return walk(errors, '');
 }
 
 /**
@@ -117,7 +124,18 @@ function Form(props) {
 
     // 底层 RHF 与合成 resolver 都由 useBoundRhf 创建，并顺手把实例绑定上去
     const rhf = useBoundRhf(form, { initialValues, resolver });
-    form._bindSubmit(() => formElement?.requestSubmit());
+    form._bindSubmit(() => {
+        if (!formElement) {
+            return;
+        }
+        try {
+            formElement.requestSubmit();
+        } catch {
+            // 表单没有提交按钮时 requestSubmit() 会抛 TypeError（HTML 规范要求 submitter 是提交按钮），
+            // 此时派发一个可取消的 submit 事件，React 的 onSubmit 同样会收到。
+            formElement.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+        }
+    });
 
     // onValuesChange / onFieldsChange：只在用户交互时触发
     useEffect(() => {
@@ -146,7 +164,7 @@ function Form(props) {
             onFinishFailed?.({ values: rhf.getValues(), errorFields: errors, outOfDate: false });
 
             if (scrollToFirstError) {
-                const first = Object.keys(errors ?? {})[0];
+                const first = firstErrorPath(errors);
                 if (first) {
                     form.scrollToField(first, {
                         focus:
@@ -228,5 +246,6 @@ export {
     useWatch,
     useItemStatus,
     isUserEvent,
+    firstErrorPath,
     renderRequiredMark,
 };

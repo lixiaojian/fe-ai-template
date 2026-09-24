@@ -56,6 +56,16 @@ test('min / max 对 undefined 跳过而非报错', async () => {
     assert.equal(await run([{ max: 5, message: '太大' }], undefined), undefined);
 });
 
+test('min / max / len 对数组按长度比较', async () => {
+    // 关键回归点：String([1,2]).length 是 3，数组必须走 Array.length
+    assert.equal(await run([{ min: 2, message: '太短' }], [1, 2]), undefined);
+    assert.equal(await run([{ min: 3, message: '太短' }], [1, 2]), '太短');
+    assert.equal(await run([{ max: 2, message: '太长' }], [1, 2]), undefined);
+    assert.equal(await run([{ max: 1, message: '太长' }], [1, 2]), '太长');
+    assert.equal(await run([{ len: 2, message: '要 2 项' }], [1, 2]), undefined);
+    assert.equal(await run([{ len: 2, message: '要 2 项' }], [1, 2, 3]), '要 2 项');
+});
+
 test('len 校验精确长度', async () => {
     const rules = [{ len: 3, message: '要 3 位' }];
     assert.equal(await run(rules, 'abc'), undefined);
@@ -106,6 +116,16 @@ test('validator 抛错视为校验失败，取其 message', async () => {
         },
     ];
     assert.equal(await run(rules, 'x'), '炸了');
+});
+
+test('validator 返回 false 时用规则自带的 message', async () => {
+    const rules = [{ validator: () => false, message: '不对' }];
+    assert.equal(await run(rules, 'x'), '不对');
+});
+
+test('validator 返回 false 且无 message 时回退到「校验失败」文案', async () => {
+    // 回归点：此前误用 pattern 的默认文案，会渲染成「字段 格式不正确」
+    assert.equal(await run([{ validator: () => false }], 'x'), '字段 校验失败');
 });
 
 test('transform 在校验前转换值', async () => {

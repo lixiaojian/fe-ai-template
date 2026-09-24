@@ -18,6 +18,8 @@ const DEFAULT_MESSAGES = {
     len: '${label} 长度必须为 ${len}',
     enum: '${label} 必须是 ${enum} 之一',
     type: '${label} 不是合法的 ${type}',
+    // 自定义 validator 返回 false / 空对象时的兜底文案（对应 antd 的 default 文案）
+    validate: '${label} 校验失败',
 };
 
 /** type 规则支持的类型 → 判定函数。 */
@@ -48,6 +50,22 @@ function isEmptyValue(value) {
 }
 
 /**
+ * 取 min / max / len 的比较基准。与 antd 一致：数字比大小，字符串与数组比长度。
+ * 注意数组必须走 length，`String([1, 2]).length` 是 3 而非 2。
+ * @param {*} value - 待度量的值。
+ * @returns {number} 用于比较的数值。
+ */
+function sizeOf(value) {
+    if (typeof value === 'number') {
+        return value;
+    }
+    if (typeof value === 'string' || Array.isArray(value)) {
+        return value.length;
+    }
+    return String(value).length;
+}
+
+/**
  * 替换 message 模板里的 ${var} 占位符。
  * @param {string|Function} template - 模板字符串或返回字符串的函数。
  * @param {Object} variables - 变量表。
@@ -66,7 +84,7 @@ function formatMessage(template, variables, defaultMessage, value) {
     }
 
     let missing = false;
-    const result = String(source).replace(/\$\{(\w+)\}/g, (_, key) => {
+    const result = String(source).replace(/\$\{(\w+)}/g, (_, key) => {
         if (variables[key] === undefined) {
             missing = true;
             return '';
@@ -152,25 +170,21 @@ function compileRules(rules, options = {}) {
                 }
             }
 
-            // min / max：数字比较大小，字符串比较长度；空值跳过（配合 required 使用）
+            // min / max：数字比较大小，字符串与数组比较长度；空值跳过（配合 required 使用）
             if (rule.min !== undefined && !isEmptyValue(value)) {
-                const size = typeof value === 'number' ? value : String(value).length;
-                if (size < rule.min) {
+                if (sizeOf(value) < rule.min) {
                     return resolveMessage(rule, 'min', variables, value);
                 }
             }
 
             if (rule.max !== undefined && !isEmptyValue(value)) {
-                const size = typeof value === 'number' ? value : String(value).length;
-                if (size > rule.max) {
+                if (sizeOf(value) > rule.max) {
                     return resolveMessage(rule, 'max', variables, value);
                 }
             }
 
             if (rule.len !== undefined && !isEmptyValue(value)) {
-                const size =
-                    typeof value === 'number' ? String(value).length : String(value).length;
-                if (size !== rule.len) {
+                if (sizeOf(value) !== rule.len) {
                     return resolveMessage(rule, 'len', variables, value);
                 }
             }
@@ -214,7 +228,8 @@ function compileRules(rules, options = {}) {
                     if (typeof result === 'string') {
                         return result;
                     }
-                    return resolveMessage(rule, 'pattern', { ...rule, label, value }, value);
+                    // 返回 false 或其他真值：用规则自带的 message，没有则回退到「校验失败」
+                    return resolveMessage(rule, 'validate', { ...rule, label, value }, value);
                 } catch (error) {
                     return error?.message ?? String(error);
                 }
