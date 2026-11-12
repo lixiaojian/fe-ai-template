@@ -352,6 +352,9 @@ function FieldItem(props) {
     const effectiveLayout = layout ?? formContext.layout;
     // 控件 id：Form 的 name 作为前缀（antd 语义），显式 htmlFor 优先级最高
     const fieldId = htmlFor ?? (formContext.name ? `${formContext.name}_${fieldName}` : fieldName);
+    // label 自身的 id：Base UI 的 Switch / Checkbox 把 id 落到隐藏 input、RadioGroup
+    // 落在非 labelable 的 div 上，htmlFor 关联不到可见控件，需配合 aria-labelledby。
+    const labelId = `${fieldId}-label`;
 
     const { field, fieldState } = useController({
         name: fieldName,
@@ -471,8 +474,10 @@ function FieldItem(props) {
     const injected = injectFieldProps(children, {
         value: field.value,
         onChange: (eventOrValue) => {
-            const next = getValueFromEvent ? getValueFromEvent(eventOrValue) : eventOrValue;
-            field.onChange(next);
+            const fromEvent = getValueFromEvent ? getValueFromEvent(eventOrValue) : eventOrValue;
+            // RHF 的 setValueAs 只作用于 setValue/setFieldsValue，用户输入走
+            // register().onChange 不经过它，因此这里必须再套一层，否则 normalize 对输入无效。
+            field.onChange(normalize ? normalize(fromEvent) : fromEvent);
             if (validateOnChange) {
                 // field.onChange 会同步把值写入 store（已实测），可直接触发校验
                 runValidate();
@@ -481,6 +486,7 @@ function FieldItem(props) {
         invalid: fieldState.invalid,
         id: fieldId,
         disabled: formContext.disabled,
+        labelledBy: label === undefined ? undefined : labelId,
         valuePropName,
         trigger,
     });
@@ -537,6 +543,7 @@ function FieldItem(props) {
     const labelNode =
         label === undefined ? null : (
             <Label
+                id={labelId}
                 htmlFor={fieldId}
                 data-slot="form-item-label"
                 className={cn(

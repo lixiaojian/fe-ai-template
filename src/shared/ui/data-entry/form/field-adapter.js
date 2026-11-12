@@ -52,12 +52,15 @@ function getFieldBinding(elementType) {
  * @param {string} [props.id] - 控件 id。
  * @param {boolean} [props.disabled] - 是否禁用控件；仅在其为真值时注入，
  *   避免把控件自身写的 disabled 覆盖成 false。
+ * @param {string} [props.labelledBy] - label 元素的 id，用于 aria-labelledby。
+ *   Base UI 的 Switch / Checkbox 把 id 落到隐藏 input 上，RadioGroup 的 id 落在
+ *   非 labelable 的 div 上，单靠 label 的 htmlFor 关联不到可见控件。
  * @param {string} [props.valuePropName] - 显式指定取值属性，优先于适配表。
  * @param {string} [props.trigger] - 显式指定变更属性，优先于适配表。
  * @returns {React.ReactNode} 注入后的子元素；子元素不合法时原样返回。
  */
 function injectFieldProps(child, props) {
-    const { value, onChange, invalid, id, disabled, valuePropName, trigger } = props;
+    const { value, onChange, invalid, id, disabled, labelledBy, valuePropName, trigger } = props;
 
     if (Array.isArray(child)) {
         console.warn('[Form] Form.Item 只能有一个子元素，已取第一个。');
@@ -91,6 +94,9 @@ function injectFieldProps(child, props) {
         if (id !== undefined) {
             rootProps.id = id;
         }
+        if (labelledBy !== undefined) {
+            rootProps['aria-labelledby'] = labelledBy;
+        }
         return cloneElement(child, rootProps);
     }
 
@@ -98,7 +104,11 @@ function injectFieldProps(child, props) {
     const withRoot = cloneElement(child, rootProps);
     const forwarded = Children.map(withRoot.props.children, (inner) =>
         isValidElement(inner) && inner.type === binding.forwardTo
-            ? cloneElement(inner, { 'aria-invalid': invalid, id })
+            ? cloneElement(inner, {
+                  'aria-invalid': invalid,
+                  id,
+                  ...(labelledBy !== undefined && { 'aria-labelledby': labelledBy }),
+              })
             : inner
     );
 

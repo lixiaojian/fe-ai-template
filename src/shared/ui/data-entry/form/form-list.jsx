@@ -79,6 +79,17 @@ function FormList(props) {
         };
     }, [form, name, rules, hasRules]);
 
+    // 把列表根注册到 RHF 的 mount 表。
+    // 提交时 resolver 的 names 来自 RHF 的已挂载字段，useFieldArray 只登记
+    // _names.array，不登记 _names.mount；空列表没有子项可挂载，列表级 rules
+    // 会被 isNameRequested 过滤掉，等于完全不校验。与 useFieldArray 内部
+    // `control.register(name, rules)` 的做法一致，放在渲染期执行（SSR 下同样生效）。
+    useMemo(() => {
+        if (hasRules) {
+            control.register(name);
+        }
+    }, [control, name, hasRules]);
+
     useEffect(() => {
         if (initialValue !== undefined) {
             console.warn(

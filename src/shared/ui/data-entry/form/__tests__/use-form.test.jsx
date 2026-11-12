@@ -286,3 +286,44 @@ test('FormInstance：getFieldInstance / setFields 明确抛错', () => {
     assert.throws(() => instance.getFieldInstance('a'), /getFieldValue/);
     assert.throws(() => instance.setFields([]), /setFieldsValue/);
 });
+
+test('FormInstance：isFieldsTouched 首参为布尔时按 allTouched 处理', async () => {
+    // antd 的合法写法：isFieldsTouched(true) —— 首参是 allTouched，不是字段列表
+    const control = makeControl({ defaultValues: { a: '', b: '' } });
+    const element = mount(control, 'a');
+    mount(control, 'b');
+    const instance = bindFormInstance(control, ['a', 'b']);
+
+    assert.equal(instance.isFieldsTouched(true), false);
+
+    control.register('a').onBlur({ target: element, type: 'blur' });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    // 只 touched a：allTouched=true 应为 false，默认（any）为 true
+    assert.equal(instance.isFieldsTouched(true), false);
+    assert.equal(instance.isFieldsTouched(false), true);
+    assert.equal(instance.isFieldsTouched(), true);
+});
+
+test('FormInstance：validateFields 的 errorFields 覆盖嵌套数组路径的错误', async () => {
+    // 回归：错误挂在 items.0.value 上时，按 getValues 顶层键拆分会丢掉该错误
+    const control = makeControl({ defaultValues: { items: [{ value: '' }], name: 'x' } });
+    control.subscribe({ formState: {}, callback: () => {} });
+    const instance = createFormInstance();
+    // 模拟 useForm() 的返回值：RHF 方法 + control 字段
+    instance._bind({ ...control, control: control.control });
+
+    control.register('items.0.value', { required: '不能为空' });
+    control.register('name', {});
+    control.setValue('name', 'x');
+
+    await assert.rejects(
+        () => instance.validateFields(),
+        (error) => {
+            assert.deepEqual(error.errorFields, [
+                { name: ['items', '0', 'value'], errors: ['不能为空'] },
+            ]);
+            return true;
+        }
+    );
+});

@@ -149,10 +149,8 @@ function compileRules(rules, options = {}) {
                         ? rule.message
                         : resolveMessage(rule, 'required', variables, value);
                 }
-                // required 单独给出且值非空时不再跑本规则的其他判定
-                if (rule.pattern === undefined && rule.type === undefined) {
-                    return undefined;
-                }
+                // 值非空时 required 通过，继续执行本规则内的其他判定（min/max/whitespace 等）：
+                // 早先在这里直接 return undefined，会让同一 rule 里的其他约束全部失效。
             }
 
             if (

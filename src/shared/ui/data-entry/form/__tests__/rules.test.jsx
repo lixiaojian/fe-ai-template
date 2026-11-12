@@ -205,3 +205,25 @@ test('未给 message 时使用内置默认文案', async () => {
     assert.equal(await run([{ required: true }], ''), '字段 为必填项');
     assert.equal(await run([{ pattern: /^\d+$/ }], 'a'), '字段 格式不正确');
 });
+
+test('required 与同一规则内的 min / max 同时生效', async () => {
+    // 回归：required 曾短路掉同一 rule 里的其他判定
+    assert.equal(await run([{ required: true, min: 3, message: '太短' }], 'ab'), '太短');
+    assert.equal(await run([{ required: true, max: 3, message: '太长' }], 'toolong'), '太长');
+    assert.equal(await run([{ required: true, len: 3, message: '长度不对' }], 'abcd'), '长度不对');
+});
+
+test('required 与同一规则内的 whitespace / enum 同时生效', async () => {
+    assert.equal(await run([{ required: true, whitespace: true }], '   '), '字段 不能为纯空白字符');
+    assert.equal(
+        await run([{ required: true, enum: ['a', 'b'], message: '不在枚举内' }], 'c'),
+        '不在枚举内'
+    );
+});
+
+test('required 与同一规则内的 type 同时生效', async () => {
+    assert.equal(
+        await run([{ required: true, type: 'email', message: '邮箱不对' }], 'x'),
+        '邮箱不对'
+    );
+});

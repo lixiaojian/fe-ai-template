@@ -171,6 +171,52 @@ function toErrorMessages(error) {
 }
 
 /**
+ * 把 RHF 的 errors 树展开成 antd 的 errorFields。
+ *
+ * 不能按 getValues() 的顶层键遍历：错误可能挂在 `items.0.value` 这种嵌套路径上，
+ * 顶层键只是 `items`，取到的是一整个错误数组，`toErrorMessages` 拿不到 message。
+ * 这里下钻到每个叶子，保留完整路径。
+ *
+ * @param {Object} errors - RHF 的 `_formState.errors`。
+ * @param {string} [prefix] - 当前路径前缀。
+ * @param {Array<{name: string[], errors: string[]}>} [out] - 收集结果。
+ * @returns {Array<{name: string[], errors: string[]}>}
+ */
+function collectErrorEntries(errors, prefix = '', out = []) {
+    if (!errors || typeof errors !== 'object') {
+        return out;
+    }
+
+    // 叶子错误：RHF 的字段错误对象带 message / type / types
+    if (typeof errors.message === 'string' || errors.type !== undefined || errors.types) {
+        const messages = toErrorMessages(errors);
+        if (messages.length > 0) {
+            out.push({ name: prefix ? prefix.split('.') : [], errors: messages });
+        }
+        return out;
+    }
+
+    if (Array.isArray(errors)) {
+        errors.forEach((child, index) => {
+            if (child !== undefined && child !== null) {
+                collectErrorEntries(child, `${prefix}.${index}`, out);
+            }
+        });
+        // 字段数组自身的错误（如列表级 required）挂在 root 上，路径就是列表名
+        if (errors.root !== undefined) {
+            collectErrorEntries(errors.root, prefix, out);
+        }
+        return out;
+    }
+
+    for (const [key, child] of Object.entries(errors)) {
+        collectErrorEntries(child, prefix ? `${prefix}.${key}` : key, out);
+    }
+
+    return out;
+}
+
+/**
  * 构造 antd 形状的 FormInstance。
  *
  * 实例自己持有 rules 注册表、已挂载字段集合与底层 RHF 引用，后两者由 Form 通过
@@ -233,6 +279,11 @@ function createFormInstance() {
         isFieldTouched: (name) =>
             Boolean(getValueByPath(requireRhf().control._formState.touchedFields, name)),
         isFieldsTouched: (nameList, allTouched) => {
+            // antd 允许 isFieldsTouched(true)：首参是 allTouched，而不是字段列表
+            if (typeof nameList === 'boolean') {
+                allTouched = nameList;
+                nameList = undefined;
+            }
             const touchedFields = requireRhf().control._formState.touchedFields;
             const names = nameList ?? Object.keys(requireRhf().getValues());
             const touched = names.map((name) => Boolean(getValueByPath(touchedFields, name)));
@@ -302,12 +353,9 @@ function createFormInstance() {
             }
 
             const errors = control.control._formState.errors;
-            const errorFields = Object.keys(control.getValues())
-                .map((name) => ({
-                    name: name.split('.'),
-                    errors: toErrorMessages(getValueByPath(errors, name)),
-                }))
-                .filter((item) => item.errors.length > 0);
+            // 遍历 errors 叶子而非 getValues 顶层键：嵌套数组路径（items.0.value）与
+            // 从未赋值的字段都可能不在 getValues 里，按顶层键拼会漏报。
+            const errorFields = collectErrorEntries(errors);
 
             const error = new Error('表单校验失败');
             error.errorFields = errorFields;
