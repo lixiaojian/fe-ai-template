@@ -1,5 +1,7 @@
 import axios from 'axios';
+import env from '@shared/lib/env.js';
 import urls from '@shared/lib/urls.js';
+import { transformRequest, isRawBody } from '@shared/lib/form-urlencoded.js';
 
 /**
  * 登录态相关错误码；接口返回这些错误码时自动跳转登录页。
@@ -10,7 +12,7 @@ import urls from '@shared/lib/urls.js';
  * 导致 RetCode 为 0 的正常响应被误判为登录态错误。
  * @type {number[]}
  */
-export const AUTH_ERROR_CODES = (import.meta.env.VITE_AUTH_ERROR_CODES || '')
+export const AUTH_ERROR_CODES = (env.VITE_AUTH_ERROR_CODES || '')
     .split(',')
     .map((code) => code.trim())
     .filter((code) => /^-?\d+$/.test(code))
@@ -47,64 +49,11 @@ function getCookie(name) {
 }
 
 /** CSRF cookie 名；未配置时对应请求头不注入。 */
-const CSRF_COOKIE = import.meta.env.VITE_CSRF_COOKIE || '';
-const UCSRF_COOKIE = import.meta.env.VITE_UCSRF_COOKIE || '';
+const CSRF_COOKIE = env.VITE_CSRF_COOKIE || '';
+const UCSRF_COOKIE = env.VITE_UCSRF_COOKIE || '';
 
 const CSRF = typeof document !== 'undefined' && CSRF_COOKIE ? getCookie(CSRF_COOKIE) : null;
 const UCSRF = typeof document !== 'undefined' && UCSRF_COOKIE ? getCookie(UCSRF_COOKIE) : null;
-
-/**
- * jQuery 风格的表单序列化函数，与后端 form-urlencoded 解析行为一致。
- * @param {*} data
- * @returns {string|*}
- */
-function transformRequest(data) {
-    const r20 = /%20/g;
-    const rbracket = /\[]$/;
-    const params = [];
-
-    const add = (key, value) => {
-        if (value === undefined) {
-            return;
-        }
-        value = typeof value === 'function' ? value() : value == null ? '' : value;
-        params.push(encodeURIComponent(key) + '=' + encodeURIComponent(value));
-    };
-
-    const buildParams = (prefix, obj) => {
-        if (Array.isArray(obj)) {
-            obj.forEach((v, i) => {
-                if (rbracket.test(prefix)) {
-                    add(prefix, v);
-                } else {
-                    buildParams(prefix + '[' + i + ']', v);
-                }
-            });
-        } else if (obj !== null && typeof obj === 'object') {
-            Object.keys(obj).forEach((key) => {
-                buildParams(prefix + '[' + key + ']', obj[key]);
-            });
-        } else {
-            add(prefix, obj);
-        }
-    };
-
-    if (Array.isArray(data)) {
-        data.forEach((obj) => {
-            Object.keys(obj).forEach((prefix) => {
-                buildParams(prefix, obj[prefix]);
-            });
-        });
-    } else if (data !== null && typeof data === 'object') {
-        Object.keys(data).forEach((prefix) => {
-            buildParams(prefix, data[prefix]);
-        });
-    } else {
-        return data;
-    }
-
-    return params.join('&').replace(r20, '+');
-}
 
 const request = axios.create({
     baseURL: urls.api,
@@ -200,10 +149,16 @@ export function post(url, data, config = {}) {
         transformRequest: [transformRequest],
         ...config,
     };
-    // 显式传入 Content-Type 时跳过内置序列化（如 application/json）；
+    // 显式传入 Content-Type 时跳过 form 序列化（如 application/json，交给 axios 默认处理）；
     // 但调用方自带 transformRequest 时保留它，不连自己的一起删掉。
     if (config.headers?.['Content-Type'] && !config.transformRequest) {
         delete mergedConfig.transformRequest;
+    }
+    // 二进制/表单类请求体由浏览器编码，必须去掉实例默认的 form-urlencoded 头，
+    // 否则 multipart 请求会缺少 boundary，后端解析不到文件。
+    // axios 的 AxiosHeaders 用 null 表示删除（undefined 会被忽略）。
+    if (isRawBody(data) && !config.headers?.['Content-Type']) {
+        mergedConfig.headers = { ...config.headers, 'Content-Type': null };
     }
     return request.post(url, data, mergedConfig);
 }

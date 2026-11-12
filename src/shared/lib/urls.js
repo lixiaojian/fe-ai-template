@@ -4,11 +4,13 @@
  *              未配置时为空串，request.js 的 baseURL 随之为空，请求走同源相对路径。
  */
 
+import env from '@shared/lib/env.js';
+
 const urls = {
     /** 网关地址。 */
-    api: import.meta.env.VITE_API_BASE_URL || '',
+    api: env.VITE_API_BASE_URL || '',
     /** 登录页地址；为空时登录态错误码不自动跳转。 */
-    passport: import.meta.env.VITE_PASSPORT_URL || '',
+    passport: env.VITE_PASSPORT_URL || '',
 };
 
 export default urls;

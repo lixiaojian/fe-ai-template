@@ -78,6 +78,11 @@ const findItem = (items, predicate) => {
  * @returns {boolean}
  */
 const defaultShouldRetry = (err) => {
+    // 登录失效等业务错误：request.js 直接以响应体为 rejection 原因（无 response），
+    // 这类错误重试无意义，而且此时页面已在跳登录，继续轮询只会持续打接口。
+    if (err && typeof err === 'object' && err.RetCode !== undefined) {
+        return false;
+    }
     const status = err?.response?.status;
     return typeof status !== 'number' || status >= 500;
 };
@@ -197,6 +202,11 @@ export function poll(options) {
                 .then(() => fetcher(action, inputData))
                 .then(
                     (data) => {
+                        // clear() 后再返回：组件已卸载或轮询已停止，回调一律不执行
+                        if (isStopPoll) {
+                            return;
+                        }
+
                         let result;
 
                         if (isList) {
@@ -228,6 +238,11 @@ export function poll(options) {
                         }
                     },
                     (err) => {
+                        // 同上：已停止轮询时不再回调
+                        if (isStopPoll) {
+                            return;
+                        }
+
                         if (shouldRetry(err)) {
                             scheduleNext();
                         }
